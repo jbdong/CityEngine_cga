@@ -1,0 +1,47 @@
+/**
+ * File:    Trees.cga
+ * Created: 26 Apr 2012 21:03:53 GMT
+ * Author:  Craig McCabe
+ */
+
+version "2014.0"
+
+@Order(1) @Range("Low","Med","High")
+attr Level_of_Detail = "Low"
+const highLOD = Level_of_Detail == "High" 
+const medLOD = Level_of_Detail == "Med"
+
+attr GENUS = "Unknown"
+attr HEIGHT = 0
+@Order(2) @Range(0.1,2.0)
+attr zFactor = 1.0
+
+lowTree = "assets/trees/appletree.lod0.obj"
+medTree = fileRandom("assets/trees/alleyTree_*_v1.obj")
+medTreePalm = "assets/trees/Was_Rob.obj"
+highTree = fileRandom("assets/trees/tree_eu03_11_*.obj")
+
+
+Tree --> 
+	case highLOD :
+		 alignScopeToAxes(y)
+		 s(0,HEIGHT*.3048*zFactor,0) 			
+		 r(0,rand(0,360),0)		// random rotation
+		 i(highTree) 
+	case medLOD && GENUS == "Washingtonia":
+		 alignScopeToAxes(y)
+		 s(0,HEIGHT*.3048*zFactor,0) 			
+		 r(0,rand(0,360),0)		// random rotation
+		 i(medTreePalm)
+	case medLOD && GENUS != "Washingtonia":
+		 alignScopeToAxes(y)
+		 s(0,HEIGHT*.3048*zFactor,0) 			
+		 r(0,rand(0,360),0)		// random rotation
+		 i(medTree)	 	
+	else :
+		 alignScopeToAxes(y) 	
+		 s(0,HEIGHT*.3048*zFactor,0) 			
+		 r(0,rand(0,360),0)		// random rotation
+		 set(material.opacity,0.5)
+		 i(lowTree) 
+

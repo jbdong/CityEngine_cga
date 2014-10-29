@@ -1,0 +1,117 @@
+/**
+ * File:    landmark.cga
+ * Created: 15 Jun 2010 06:25:26 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+##################
+# Main
+##################
+
+@Group("Main",0) @Range("repeatFloors", "explode", "splitAndRotate", "showAll", "leaveAsIs")
+attr mode = "showAll"
+
+@Group("Main",0)@Range(0,200) 
+attr offsetFromOriginal = 80
+
+
+@StartRule
+BuildingModel -->
+	alignScopeToAxes(y)
+	t(0,0,offsetFromOriginal) ModifiedModel 
+	
+ModifiedModel -->
+	case mode =="repeatFloors" : RepeatFloors
+	case mode =="explode" : Explode
+	case mode =="splitAndRotate" : SplitAndRotate
+	case mode =="showAll" :
+		RepeatFloors
+		t(0,0,offsetFromOriginal) SplitAndRotate
+	t(0,0,offsetFromOriginal) Explode 
+	else : End.
+
+
+##################
+# Repeat Floors
+##################
+
+@Group("Repeat Floors",1)
+attr Level_Height = 3
+@Group("Repeat Floors")
+attr Raise_No_of_Levels = 12
+@Group("Repeat Floors")
+attr Raise_Origin = 8
+
+
+RepeatFloors -->
+ case Raise_No_of_Levels > 0:
+  alignScopeToAxes(y)
+  split(y){ Raise_Origin: End.
+    | Level_Height: Levels(Raise_No_of_Levels)
+    | ~1          : t(0,Level_Height*Raise_No_of_Levels,0) End. }
+ else:
+  End.
+
+Levels(n) -->
+ case n > 0: 
+  End.
+  t(0,Level_Height,0) 
+  Levels(n-1)
+ else:
+  End.
+
+
+
+#########
+# Explode
+#########
+
+@Group("Explode",2)
+attr explosion_distance = 8
+
+Explode -->
+	comp(f){all : Face}
+	
+Face --> t(0,0,explosion_distance)	
+
+
+
+##################
+# Split and Rotate
+##################
+	
+@Group("Split and Rotate",3)
+attr splitSize = 1
+@Group("Split and Rotate")
+attr splitdist = 3
+@Group("Split and Rotate")
+attr rotation = 10
+
+
+SplitAndRotate -->
+	split(y){splitSize : Part }*
+
+Part -->
+	t(0,split.index*splitdist,0)
+	r(scopeCenter, 0,split.index*rotation,0)
+
+	
+	
+	
+style RepeatFloors
+attr mode = "repeatFloors"
+
+style Explode
+attr mode = "explode"
+
+style SplitAndRotate
+attr mode = "splitAndRotate"
+
+//style LeaveAsIs
+//attr mode = "leaveAsIs"
+
+
+	
+	

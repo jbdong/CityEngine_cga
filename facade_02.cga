@@ -1,0 +1,151 @@
+/**
+ * File:    facade_02.cga
+ * Created: 3 Nov 2008 15:31:30 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+
+/* Attributes *************************************/
+
+@Group("Building",1) @Range(5,40)
+attr height 			= 24
+
+@Group("Floor",2) @Range(3,6)
+attr groundfloor_height = 5.5
+@Group("Floor") @Range(3,6)
+attr floor_height 		= 4.5
+
+@Group("Tile",3) @Range(2,5)
+attr tile_width 		= 3.1
+@Group("Tile")
+attr wallColor          = "#ffffff"
+@Group("Tile") @Range(1,3)
+attr window_width		= 1.4
+@Group("Tile") @Range(1,3)
+attr door_width			= 2.1
+
+
+
+
+/* Functions *************************************/
+
+
+		
+const wall_inset = 0.4
+
+
+
+
+/* Initial Shape starting rule *************/
+
+# extrude the lot to building height
+@StartRule
+Lot --> extrude(height) Building
+
+
+
+# we only need the front face for this example
+Building --> comp(f) { front : Frontfacade}
+
+
+
+# the front facade is subdivided into one front groundfloor 
+# and upper floors
+Frontfacade -->	
+	split(y){ groundfloor_height    : Floor(split.index) 	// Groundfloor
+			| floor_height : Floor(split.index)   		 	// First Floor			
+			| floor_height : Floor(split.index)		 		// Second Floor
+			| {~floor_height : Floor(split.index)}*			// Mid Floors
+			| floor_height : Floor(999)						// Top Floor, indexed with 999
+			| 0.5 : s('1,'1,0.3) LedgeAsset}   				// The top ledge just below the roof
+
+
+
+
+
+# depending on the floor index, floors are split into bottom ledge, tile (window) and top ledge area
+Floor(floorindex) -->
+	case floorindex == 0 : 
+		// Groundfloor has tiles only, no ledges
+		Subfloor(floorindex)
+	case floorindex == 2 : 
+		// because windows start at floor level, no bottom ledge for second floor
+		// but balcony instead 
+		split(y){~1 : Subfloor(floorindex) | 0.5 : TopLedge}
+	else : 
+		// all other floors have bottom ledge, tile and top ledge area
+		split(y){1 : BottomLedge(floorindex) | ~1 : Subfloor(floorindex) | 0.5 : TopLedge}
+	
+
+
+
+
+
+
+
+# ----------------------------------------
+# Tiles
+# ----------------------------------------
+
+# Tiles consist of small wall areas on left and right edges and repeating tiles in between
+Subfloor(floorindex) -->
+	split(x){ 0.5 : Wall(1) 
+			| { ~tile_width : Tile(floorindex) }* 
+			| 0.5 : Wall(1) }
+	
+
+# a tile consists of a centered window element and 
+# wall elements left and right.		
+Tile(floorindex) -->
+	case floorindex == 0 :
+		// the groundfloor has different dimensions and different shapes 
+		split(x){ ~1 : SolidWall 
+			|  door_width : DoorTile
+			| ~1 : SolidWall }		 
+	else : 	
+		split(x){ ~1 : Wall(getWalltype(floorindex))
+			|  window_width : WindowTile(floorindex)
+			| ~1 : Wall(getWalltype(floorindex)) }		 
+	
+
+
+
+
+
+	
+
+
+
+
+
+
+# ----------------------------------------
+# Wall
+# ----------------------------------------
+
+	
+# for the wall asset, setting the texture scale params u and v 
+# guarantees a texture mapping that nicely fits over the whole facade
+getWalltype(floorindex) = 
+	case floorindex == 0 : 1
+	case floorindex == 1 : 1
+	else : 2
+
+Wall(walltype) -->
+	// dark bricks with dirt
+	case walltype == 1 :
+		color(wallColor)
+	// bright bricks with dirt	
+	case walltype == 2 :
+		color(wallColor)
+	// dirt only	
+	else :
+		color(wallColor)
+
+
+SolidWall -->
+		s('1,'1,wall_inset) t(0,0,-wall_inset)
+		i("builtin:cube:notex")	
+		Wall(1)		  	

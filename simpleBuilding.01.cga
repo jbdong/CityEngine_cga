@@ -1,0 +1,128 @@
+/**
+ * File:    simpleBuilding.01.cga
+ * Created: 4 May 2008 23:27:29 GMT
+ * Author:  andi
+ */
+
+version "2010.3"
+
+
+/* Attributes *************************************/
+
+attr groundfloor_height = 4
+attr floor_height 		= 3.5
+attr tile_width 		= 3
+attr height 			= 11 
+attr wallColor          = "#fefefe"
+
+/* Assets *************************************/
+
+// geometries
+window_asset = "facades/window.obj"
+
+	
+
+
+
+
+/* Initial Shape starting rule *************/
+
+# scale the lit to leave a small border and extrude the lot to building height
+Lot --> 
+	extrude(height) Building
+
+# inner lots are dropped
+LotInner --> NIL
+
+
+
+# split the building geometry into its facade components
+Building -->
+	comp(f) { front : Frontfacade | side : Sidefacade | top: Roof}
+
+
+
+# the front facade is subdivided into one front groundfloor 
+# and upper floors
+Frontfacade -->	
+	setupProjection(0, scope.xy, 1.5, 1, 1) # setup 1.5m x 1m texture tiles along scopes xy plane (and distortion in z)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){ groundfloor_height    : Groundfloor 
+			| {~floor_height : Floor}* }
+
+
+# a side facade is subdivided into one bottom floor 
+# and upper floors. 
+Sidefacade --> 
+	setupProjection(0, scope.xy, 1.5, 1, 1) # setup 1.5m x 1m texture tiles along scopes xy plane (and distortion in z)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){ groundfloor_height    : Floor 
+			| {~floor_height : Floor}* }
+	
+
+
+
+# each floor is horizontally split into two narrow corner areas on 
+# each side of the floor, and into a set of window tiles in between
+Floor -->
+	split(x){ 1 : Wall 
+			| { ~tile_width : Tile }* 
+			| 1 : Wall }
+	
+	
+# similarily, the front groundfloor is horizontally split into 
+# two narrow corner areas on each side of the floor, 
+# a special entrance tile on the right 
+# and into a set of window tiles in between
+Groundfloor -->
+	split(x){ 1 			: Wall 
+			| { ~tile_width : Tile }* 
+			| ~tile_width 	: EntranceTile 
+			| 1 			: Wall }
+
+
+# a tile consists of a centered window element and 
+# wall elements above, below, left and right		
+Tile -->
+	split(x){ ~1 : Wall 
+			|  2 : split(y){ 1: Wall | 1.5: Window | ~1: Wall }
+			| ~1 : Wall }		 
+	
+	
+# similarily, the EntranceTile contains a centered Door element,
+# but with no wall on spacing below
+EntranceTile -->
+	split(x){ ~1 : SolidWall 
+			| 2  : split(y){ 2.5: Door | ~2: SolidWall } 
+			| ~1 : SolidWall }
+	
+	
+# firstly, the depth and the depth position of the future window is set
+# secondly, one of nine window textures is randomly selected	  
+# finally, the window geometry asset is inserted
+Window -->
+	s('1,'1,0.4)
+	t(0,0,-0.25)
+	i(window_asset)  
+	
+
+# same for the door asset. Scaling, positioning, texture selection
+# and geometry insert
+# TODO: fix door uv bug (problem with uv handling on split?)
+Door -->
+	s('1,'1,0.1)
+	t(0,0,-0.5)
+	i("builtin:cube")	  
+	
+	
+# for the wall asset, setting the texture scale params u and v 
+# guarantees a texture mapping that nicely fits over the whole facade
+Wall -->
+	color(wallColor)
+
+SolidWall -->
+	color(wallColor)
+	s('1,'1,0.4) 
+	t(0,0,-0.4) 
+	i("builtin:cube:notex")	
+		  	

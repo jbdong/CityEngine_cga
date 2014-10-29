@@ -1,0 +1,315 @@
+/**
+ * File:    BuildingsUseStacked.cga
+ * Created: 22 Mar 2012 23:12:23 GMT
+ * Author:  craig mccabe. (updates for webgl export by andreas ulmer)
+ */
+
+version "2014.0"
+
+import facades:"Facades.cga"
+
+// This CGA rule displays the building interior space data for the M/MA/N building complex on the Esri
+// campus. The "stacked" part of the name indicates that when a specific floor number
+// is selected in the drop-down, all floors below that are also displayed. Spaces are colored according
+// to the space Use type attribute (e.g., offices, conference rooms, restrooms, etc.)
+
+
+// Adjustable visualization options: show 3D furniture, change the floor display, or set exterior wall transparency
+@Order(1) @Range("Off","On")
+attr Show_Furniture = "Off"
+const highLOD = Show_Furniture == "On" 
+
+@Order(1) @Range("1","2","3")
+attr Floor_Selector = "1" 
+
+@Order(1) @Range("Single Floor","Stacked Floors")
+attr Floor_Display = "Stacked Floors"
+
+@Order(1) @Range(0,1)
+attr Exterior_Visibility = 0.1
+
+
+// Set extrusion heights of interior/exterior/partial-height walls & stairs
+@Group("Extrusion Heights",2)
+attr extWallHeight 	= 11.75*.3048
+@Group("Extrusion Heights")@Range(0,3.657)
+attr intWallHeight 	= 3*.3048
+@Group("Extrusion Heights")
+attr partWallHeight = 3*.3048
+@Group("Extrusion Heights")
+attr stairHeight = -0.5*.3048
+
+// Set colors for extruded structural features (walls, doors, columns, etc.)
+@Group("Structure Colors",3)
+attr extWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr intWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr doorColor 		= "#966D18"
+@Group("Structure Colors")
+attr fireDoorColor  = "#FF0000"
+@Group("Structure Colors")
+attr glassColor 	= "#99C6FD"
+@Group("Structure Colors")
+attr glassDoorColor = "#0080C0"
+@Group("Structure Colors")
+attr columnColor	= "#5C5C5C"
+@Group("Structure Colors")
+attr errorColor 	= "#FF0000"
+@Group("Structure Colors")
+attr stairColor 	= "#5C5C5C"
+@Group("Structure Colors")
+
+// Set floor surface colors for different types of interior spaces
+@Group("Space Colors",3)
+attr officeColor 	= "#FEF2B1"
+@Group("Space Colors")
+attr hallColor 		= "#C0C0C0"
+@Group("Space Colors")
+attr confColor 		= "#FCDB23"
+@Group("Space Colors")
+attr breakColor 	= "#A4D595"
+@Group("Space Colors")
+attr restroomColorMen	= "#B0E6FF"
+attr restroomColorWomen	= "#FFD2FF"
+@Group("Space Colors")
+attr serverColor	= "#AFAFD8"
+
+// Set default feature attribute values
+attr STRUCTURETYPE 	= "unknown"
+attr SPACETYPE 		= "unknown"
+attr SHORTNAME 		= "unknown"
+attr BASEELEV		= 0
+
+// 3D models of people, interior space types/assets
+peopleAsset = fileRandom("assets/people_by_lowpolygon3d_com/*.obj")
+officeAsset = "assets/interiorFurniture/computer_1_v1.obj"
+confAsset = "assets/interiorFurniture/table_3_v1.obj"
+restroomAssetMen = "assets/restrooms/Restroom_Man6.dae"
+restroomAssetWomen = "assets/restrooms/Restroom_Woman6.dae"
+
+
+@StartRule
+Structure --> 
+	case STRUCTURETYPE == "Interior Wall" :
+		Wall(intWallHeight, intWallColor)
+	case STRUCTURETYPE == "Exterior Wall" :
+		set(material.opacity,Exterior_Visibility) //Wall(extWallHeight, extWallColor)
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		OuterWall
+
+	case STRUCTURETYPE == "Column" :
+		set(material.opacity,0.5) Wall(extWallHeight, columnColor)
+	case STRUCTURETYPE == "Door" :
+		projectUV(0) Wall(intWallHeight, doorColor) 
+	case STRUCTURETYPE == "Fire Door" :
+		Wall(intWallHeight, fireDoorColor)
+	case STRUCTURETYPE == "Exterior Glass Wall" :
+		set(material.opacity,Exterior_Visibility*.5) 
+		set(material.shininess, 10)
+		set(material.reflectivity, 0.1)
+		set(material.specular.r, 0.7)
+		set(material.specular.g, 0.7)
+		set(material.specular.b, 0.7)
+		texture("interiorTextures/white64x64.png")
+		Wall(extWallHeight, glassColor)
+	case STRUCTURETYPE == "Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+		Reflectivity
+		
+	case STRUCTURETYPE == "Glass Wall" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassColor)
+		Reflectivity
+		
+	case STRUCTURETYPE == "Partial Height Wall" :
+		Wall(partWallHeight, intWallColor)
+	case STRUCTURETYPE == "Sliding Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+		Reflectivity
+		
+	case STRUCTURETYPE == "Stair" :
+		Wall(stairHeight, stairColor)
+	else :
+		Wall(0, errorColor)
+
+
+@StartRule
+Floors -->
+// Working Spaces
+	case SPACETYPE == "Office" || 
+		 SPACETYPE == "Office Cubicle" || 
+		 SPACETYPE == "Work Spaces" :
+			report("Area.Workspaces",geometry.area*10.7639104)
+			alignScopeToGeometry(yUp, any, longest)
+			Floor(officeColor) 
+//			Furniture(officeAsset,1)	
+// Conference and Meeting Spaces
+	case SPACETYPE == "Conference Room" :
+			report("Area.Conference",geometry.area*10.7639104)
+			alignScopeToGeometry(yUp, any, longest)
+			Floor(confColor)
+			Furniture(confAsset,1)
+	case SPACETYPE == "Classroom" || 
+		 SPACETYPE == "Library" :
+		 	Floor(confColor)
+// Entry and Corridor Spaces
+	case SPACETYPE == "Entry Vestibule" ||
+		 SPACETYPE == "Entry Lobby" ||
+		 SPACETYPE == "Corridor" :
+			report("Area.Corridors",geometry.area*10.7639104)
+			Floor(hallColor)
+			Furniture(peopleAsset,rand(1.5,2.0))
+// Break Spaces
+	case SPACETYPE == "Vending Machine Area" ||
+		 SPACETYPE == "Kitchen" ||
+		 SPACETYPE == "Break Room" ||
+		 SPACETYPE == "Patio" :
+			report("Area.BreakSpaces",geometry.area*10.7639104)
+			Floor(breakColor)
+//			Furniture(breakAsset,0)
+// Restroom Spaces
+	case SPACETYPE == "Restroom" && SHORTNAME == "Women":
+			Floor(restroomColorWomen)
+			report("Area.RestroomsWomen",geometry.area*10.7639104)
+			Furniture(restroomAssetWomen,1.75)
+	case SPACETYPE == "Restroom" && SHORTNAME == "Men":
+			Floor(restroomColorMen)
+			report("Area.RestroomsMen", geometry.area*10.7639104)
+			Furniture(restroomAssetMen,1.75)
+// Server Spaces
+	case SPACETYPE == "Computer Server Room" :
+			report("Area.ServerRooms", geometry.area*10.7639104)
+		Floor(serverColor)
+	case SPACETYPE == "Elevator" :
+		NIL
+// All Other Spaces
+	else :
+		report("Area.OtherSpaces", geometry.area*10.7639104)
+		Floor(hallColor)
+
+Floor(c) -->
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors" :
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+	else: NIL
+
+Wall(n,c) --> 
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	else: NIL
+
+Furniture(q,z) -->
+	case highLOD && Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q)
+	case highLOD && Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q)
+	case highLOD && Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+ 		s(0,z,0) center(xz) i(q)
+ 	case highLOD && Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q)
+	case highLOD && Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q)
+	case highLOD && Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		//translate(rel, world, 0, BASEELEV*.3048, 0) 
+ 		s(0,z,0) center(xz) i(q)
+	else : NIL
+	
+attr tile_width 	   		= 3
+
+	
+OuterWall -->
+convexify
+comp(f){all :
+	extrude(extWallHeight)
+	comp(f){side: 	Floor }
+		}
+		//comp(f){ front : facades.Building }//| side : SideFacade | top : Roof }
+		//facades.Building
+
+Floor -->
+	split(x){ 0.5 : Wall | {~tile_width : Tile }* | 0.5 : Wall }
+
+Groundfloor --> 
+	split(x){ 0.5 : Wall | {~tile_width : Tile }* | ~tile_width: EntranceTile | 0.5 : Wall }
+
+Tile -->
+	split(x){ ~1 : Wall | 2.2 : split(y){ 1: Wall | 1.7: Window | ~1: Wall } | ~1 : Wall}
+
+EntranceTile --> 
+	split(x){ ~1 : SolidWall | 2 : split(y){ 2.5 : Door | ~2: SolidWall } | ~1 : SolidWall}
+	
+Window --> 
+	case scope.sx > 1.4:
+		split(x){ ~1: SashWin | ~1: SashWin }
+	else:
+		SashWin	
+SashWin -->
+	//setupProjection(0, scope.xy, '1, '1) projectUV(0)
+	//texture(fileRandom("assets/windowtextures/sash*"))
+	//i("builtin:cube")
+	color(glassColor)
+	setupProjection(0, scope.xy, 1,1)
+	projectUV(0)
+	Reflectivity
+
+Wall -->
+		//color(wallColor)
+		//texture(wall_tex)
+		//set(material.opacity,bldgTransparency)
+		//set(material.dirtmap, dirt_tex)
+		//projectUV(0) projectUV(2)
+		X.
+
+Reflectivity -->
+	set(material.reflectivity, 0.1)
+	set(material.shininess, 10)
+	set(material.specular.r, 0.7)
+	set(material.specular.g, 0.7)
+	set(material.specular.b, 0.7)
+	texture("interiorTextures/white64x64.png")
+
+@StartRule
+Footprint --> NIL
+			

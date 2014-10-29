@@ -1,0 +1,171 @@
+/**
+ * File:    simpleBuilding.04.cga
+ * Created: 4 May 2008 23:27:29 GMT
+ * Author:  andi
+ */
+
+version "2010.3"
+
+
+/* Attributes *************************************/
+
+@Range(2,6)
+attr groundfloor_height = 4
+@Range(2,6)
+attr floor_height 		= 3.5
+
+@Range(1,10)
+attr tile_width 		= rand(2.5,6)
+@Range(3,50)
+attr height 			= rand(11,30) 
+attr wallColor  =        
+	33% :  "#ffffff"
+	33% :  "#999999"
+	else :  "#444444"
+
+@Range(LOD0=0,LOD1=1)
+attr LOD 				= 0
+/* Assets *************************************/
+
+// geometries
+const window_asset = "facades/window.obj"
+
+// textures
+const frontdoor_tex 		= "facades/textures/shopdoor.tif"
+const wall_tex 				= "facades/textures/brickwall2.tif"
+const dirt_tex				= "facades/textures/dirtmap.15.tif"
+const roof_tex 				= "roofs/roof.tif"
+
+
+# this function will get one of the 9 window textures in the assets folder
+randomWindowTexture = fileRandom("*facades/textures/window.*.tif")	
+	
+
+
+
+
+/* Initial Shape starting rule *************/
+
+# scale the lit to leave a small border and extrude the lot to building height
+Lot --> 
+	extrude(height) Building
+
+# inner lots are dropped
+LotInner --> NIL
+
+
+
+# split the building geometry into its facade components
+Building -->
+	comp(f) { front : Frontfacade | side : Sidefacade | top: Roof}
+
+
+
+# the front facade is subdivided into one front groundfloor 
+# and upper floors
+Frontfacade -->	
+	setupProjection(0, scope.xy, 1.5, 1, 1) # setup 1.5m x 1m texture tiles along scopes xy plane (and distortion in z)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){ groundfloor_height    : Groundfloor 
+			| {~floor_height : Floor}* }
+
+
+# a side facade is subdivided into one bottom floor 
+# and upper floors. 
+Sidefacade --> 
+	setupProjection(0, scope.xy, 1.5, 1, 1) # setup 1.5m x 1m texture tiles along scopes xy plane (and distortion in z)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){ groundfloor_height    : Floor 
+			| {~floor_height : Floor}* }
+	
+
+# a roof texture is applied to the roof face
+Roof --> 
+	color(wallColor)
+	setupProjection(0, scope.xy, scope.sx, scope.sy)
+	texture(roof_tex)
+	projectUV(0) 
+
+
+# each floor is horizontally split into two narrow corner areas on 
+# each side of the floor, and into a set of window tiles in between
+Floor -->
+	split(x){ 1 : Wall 
+			| { ~tile_width : Tile }* 
+			| 1 : Wall }
+	
+	
+# similarily, the front groundfloor is horizontally split into 
+# two narrow corner areas on each side of the floor, 
+# a special entrance tile on the right 
+# and into a set of window tiles in between
+Groundfloor -->
+	split(x){ 1 			: Wall 
+			| { ~tile_width : Tile }* 
+			| ~tile_width 	: EntranceTile 
+			| 1 			: Wall }
+
+
+# a tile consists of a centered window element and 
+# wall elements above, below, left and right		
+Tile -->
+	split(x){ ~1 : Wall 
+			|  2 : split(y){ 1: Wall | 1.5: Window | ~1: Wall }
+			| ~1 : Wall }		 
+	
+	
+# similarily, the EntranceTile contains a centered Door element,
+# but with no wall on spacing below
+EntranceTile -->
+	split(x){ ~1 : SolidWall 
+			| 2  : split(y){ 2.5: Door | ~2: SolidWall } 
+			| ~1 : SolidWall }
+	
+	
+# firstly, the depth and the depth position of the future window is set
+# secondly, one of nine window textures is randomly selected	  
+# finally, the window geometry asset is inserted
+Window -->
+  case LOD > 0 :
+	s('1,'1,0.4)
+	t(0,0,-0.25)
+	texture(randomWindowTexture)	
+	i(window_asset)  
+  else :	
+	setupProjection(0,scope.xy,scope.sx,scope.sy)	
+	texture(randomWindowTexture)	
+	projectUV(0)   
+	
+# same for the door asset. Scaling, positioning, texture selection
+# and geometry insert
+# TODO: fix door uv bug (problem with uv handling on split?)
+Door -->
+  case LOD > 0 :
+	s('1,'1,0.1)
+	t(0,0,-0.5)
+	texture(frontdoor_tex)    
+	i("builtin:cube")	  
+  else :
+	setupProjection(0,scope.xy,scope.sx,scope.sy)	
+	texture(frontdoor_tex) 
+	projectUV(0)   
+	
+# for the wall asset, setting the texture scale params u and v 
+# guarantees a texture mapping that nicely fits over the whole facade
+Wall -->
+	color(wallColor)
+	texture(wall_tex)  
+	set(material.dirtmap, dirt_tex)
+	projectUV(0) projectUV(2)
+
+SolidWall -->
+  case LOD > 0 :
+	color(wallColor)
+	s('1,'1,0.4) 
+	t(0,0,-0.4) 
+	texture(wall_tex)  
+	set(material.dirtmap, dirt_tex)
+	i("builtin:cube:notex")	
+	projectUV(0) projectUV(2)
+  else :
+  	Wall		  	

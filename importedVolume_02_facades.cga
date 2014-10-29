@@ -1,0 +1,44 @@
+/**
+ * File:    importedVolume_02_facades.cga
+ * Created: 2 Nov 2008 15:33:07 GMT
+ * Author:  andi
+ */
+
+version "2010.3"
+
+
+Building -->
+	alignScopeToAxes(y)
+	comp(f){top : Roof | side : Facade }
+
+
+Roof --> color("#ff0000") 
+	
+Facade -->  
+alignScopeToGeometry(zUp, auto)
+split(y){3.5 : Groundfloor | {~3 : Floor}* }
+
+Groundfloor -->
+	case scope.sx > 10 : split(x){{~2 : GFTile}* | 4 : Doortile | {~2 : GFTile}* }
+	else : Wall
+
+Floor --> split(y){~1 : split(x){~2 : Tile }* | 0.2 : Wall}
+
+
+GFTile --> split(y){~1 : Wall | 2 : Tile | ~1 : Wall}
+
+Tile --> i("facades/modern_window.obj")
+
+Doortile --> split(y){~1 : Door | 0.2 : Doorroof }
+
+Doorroof --> extrude(0.7) alignScopeToAxes(y) comp(f){top : Roof | all : color("#448892") Wall }
+
+Door --> split(x){0.3 : Doorside | ~1 : DoorInlet | 0.3 : Doorside}
+
+DoorInlet --> split(x){~1 : Wall | 2 : Doortex | ~1 : Wall}
+
+Doortex --> setupProjection(0,scope.xy,scope.sx, scope.sy) texture("facades/door.tif") projectUV(0)
+
+Doorside --> extrude(0.3)  comp(f){all : color("#448892") Wall}
+
+Wall --> setupProjection(0,scope.xy,2,2,1) texture("facades/concrete.jpg") projectUV(0)

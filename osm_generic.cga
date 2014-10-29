@@ -1,0 +1,106 @@
+/**
+ * File:    simple_01.cga
+ * Created: 29 Oct 2008 18:40:43 GMT
+ * Author:  andi
+ */
+
+version "2010.3"
+
+
+attr leisure = ""
+attr sport = ""
+attr building = ""
+attr natural = ""
+attr amenity = ""
+attr landuse = ""
+
+@StartRule
+Lot --> 
+	case building !="" && building != "no": Building
+	case leisure != "" : Park
+	case sport != "" : Park
+	case natural != "" : Blue
+	case amenity != "" : Red
+	case landuse != "" : LU
+	
+	else : X.
+	
+
+LotInner --> Lot
+LotCorner --> NIL
+
+attr floorheight = 3.5
+attr height = 
+	case geometry.area > 1000 : rint(rand(1,3))*floorheight
+	case geometry.area > 600 : rint(rand(10,20))*floorheight
+	case geometry.area > 100 : rint(rand(2,5))*floorheight
+	else : 1*floorheight
+	
+
+Building --> 
+	color("#333333") Bg. 
+	color("#ffffff") s('0.9,'1,'0.9)  center(xz) extrude(height) Mass 
+
+Mass -->
+	Mass.
+	comp(f){top : Roof}
+	
+attr rooftype = 
+	case height > 5*floorheight : "flat"
+	case geometry.nEdges > 4 : "flat"
+	else : 50% : "gable" else : "hip" 	
+
+Roof -->
+	case rooftype =="hip" : roofHip(20) Roof.
+	case rooftype =="gable" : roofGable(20) Roof.
+	else : Roof.
+
+Park --> color("#006600")
+Blue --> color("#000066")
+Red --> color("#660000")
+LU --> color("#660066")
+
+
+
+
+#####################
+# Streets 
+#####################
+
+
+attr highway = ""
+
+const streetcolor = 
+	case highway =="primary" || highway =="primary_link" : "#e46d71"
+	case highway =="secondary" || highway =="secondary_link" : "#fdbf6f"
+	case highway =="tertiary" : "#fcfa74"
+	case highway =="motorway" || highway =="motorway_link" : "#809bc0"
+	case highway =="trunk" : "#7fc97f"
+	case highway =="trunk_link" : "#a8daa8"
+	case highway =="road" : "#666666"
+	case highway =="residential" : "#dddddd"
+	case highway =="service" : "#ccccff"
+	case highway =="footway" : "#ffcccc"
+	
+	
+	else : "#ffffff"
+
+@StartRule
+Street --> color(streetcolor)
+
+JunctionEntry --> Street
+Sidewalk --> color("#666666")
+Junction --> color("#aaaaaa")
+Crossing--> color("#aaaaaa")
+
+
+CrossingSidewalk   --> Crossing
+Joint              --> Street
+Freeway            --> Street
+FreewayEntry       --> Street
+Roundabout         --> Street
+RoundaboutIsland   --> Sidewalk
+RoundaboutEntry    --> Street
+
+
+

@@ -1,0 +1,80 @@
+/**
+ * File:    spherecity_01.cga
+ * Created: 20 Oct 2008 12:23:08 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+
+// Starting rules triggered from  Lot's ShapeSymbols
+@StartRule
+Crossing --> 
+	Black
+
+@StartRule
+Street --> 
+	alignScopeToGeometry("zUp","auto") split(x){~1 : Black | 0.8 : Line | ~1 : Black }
+
+@StartRule
+Park --> 
+	[ color("#009900") Lot. ] 
+	s(0,rand(8,12),0) center(xz) i("trees/appletree.lod0.obj") Tree.
+
+@StartRule
+Residential --> 
+	[ color("#009900") Lot. ] 
+	comp(e){all : Fence} s('rand(0.3,0.8), '1, 'rand(0.4,0.6)) center(xz) 
+	ResidentialSub
+
+@StartRule
+Industrial --> 
+	color("#666666") extrude(rand(5,10)) Solid. 
+	comp(f){top :  split(x){~1 : extrude(rand(1,4)) IndustSolid | ~1 : split(y){~1 : NIL | (rand(0.5,1)) : split(x){~1 : NIL | (rand(1,10)) : Chimney | ~1 : NIL }* | ~1 : NIL}* } }
+
+@StartRule
+Commercial --> 
+	[ color("#333333") Lot. ] 
+	color("#aaaaff") comp(f){top : CommercialSub(rand(50,100))}
+
+
+
+
+
+// Street sub rules
+Line --> split(y){split(y){~2 : White | ~2 : Black }* }
+Black --> color("#222222") 
+White --> color("#ffffff") 
+
+
+// Residential sub rules
+ResidentialSub -->
+	50% : split(x){~1 : ResidHouse | ~1 : ResidHouse}
+	else : ResidHouse	
+ResidHouse -->
+		extrude(scope.sx*scope.sz/7 + rand(0,2)) Mass. comp(f){top :  color("#ff0000")  roofHip(35) Roof. }
+
+Fence --> s('1,0.01,1.5) i("builtin:cube") 
+
+
+
+
+// Industrial sub rules
+chimneyh = rand(2,15)
+
+IndustSolid --> 
+	25% :  s('rand(0.5,1), '1, 'rand(0.5,1))
+	25% : comp(f){top : Chimney}
+	else : NIL 
+			
+Chimneys --> split(x){~(rand(1,5)) : Chimney } *
+Chimney -->  s(2,2,chimneyh) center(xy) setPivot(yzx, 0) i("cylinder.hor.obj")
+
+
+// Commercial sub rules
+CommercialSub(h) -->
+	case scope.sy > 2 :  s('0.6,'0.6,'1) center(xy)  extrude(h*0.3) CommSolid comp(f){top : CommercialSub(h*0.3)} 
+	else : s(0.1,0.1,5) center(xy) i("builtin:cube")
+
+CommSolid --> comp(f){side : Side. | top : color("#ffffff") Roof.}
+	

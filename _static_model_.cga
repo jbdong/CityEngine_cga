@@ -1,0 +1,103 @@
+# info:     static model generation
+
+@Hidden
+attr Asset_File = ""
+@Hidden
+attr Pos_Center = false
+@Hidden
+attr Pos_Bottom_Align = false  
+@Hidden
+attr Pos_zUp = false
+@Hidden
+attr Material_Colorize = "#ffffff"
+@Hidden
+@Range("keep original", "semitransparent", "opaque")
+attr Material_Transparency = "keep original"
+@Hidden
+@Range("keep original", "soft", "hard")
+attr Normals = "keep original"
+
+rotAngle = case Pos_zUp: -90 else: 0
+
+const modifyTransparency = Material_Transparency != "keep original"
+const opacityValue = case Material_Transparency == "opaque": 1 else: 0.35
+
+
+@Hidden
+attr scx = 1
+@Hidden
+attr scy = 1
+@Hidden
+attr scz = 1
+	
+	
+@Hidden
+StaticModel --> 
+	r(rotAngle,0,0)
+	set(scx,scope.sx) set(scy,scope.sy) set(scz,scope.sz)
+	StaticModelMode
+
+@Hidden
+StaticModelMode -->
+	case Pos_Center && Pos_Bottom_Align :
+		StaticModelCenterAlign
+	case Pos_Center:
+		StaticModelCenter
+	case Pos_Bottom_Align :
+		StaticModelAlign	
+	else:
+    	StaticModelOrig	
+
+@Hidden
+StaticModelOrig -->   	
+    s(0,0,0) i(Asset_File) s('scx,'scy,'scz)
+    set(scope.tx,scx*(scope.tx+0.5))
+    set(scope.ty,scy*(scope.ty+0.5))
+    set(scope.tz,scz*(scope.tz+scz-0.5))
+    StaticModelNormals
+
+@Hidden
+StaticModelCenter -->  
+	s(0,0,0) i(Asset_File) s('scx,'scy,'scz) center(xyz) 
+	StaticModelNormals
+
+@Hidden
+StaticModelAlign -->  
+	case Pos_zUp:
+    	s(0,0,0) i(Asset_File) s('scx,'scy,'scz) center(z) t(0,0,'0.5) 
+    	set(scope.tx,scx*(scope.tx+0.5)) set(scope.tz,scz*(scope.tz+scz-0.5))
+    	StaticModelNormals
+    else:
+ 		s(0,0,0) i(Asset_File) s('scx,'scy,'scz) center(y) t(0,'0.5,0) 
+    	set(scope.tx,scx*(scope.tx+0.5)) set(scope.tz,scz*(scope.tz+scz-0.5))
+    	StaticModelNormals
+
+@Hidden
+StaticModelCenterAlign -->   	
+	case Pos_zUp:
+    	s(0,0,0) i(Asset_File) s('scx,'scy,'scz) center(xyz) t(0,0,'0.5) StaticModelNormals
+	else:
+    	s(0,0,0) i(Asset_File) s('scx,'scy,'scz) center(xyz) t(0,'0.5,0) StaticModelNormals
+
+@Hidden
+StaticModelNormals -->
+	case Normals == "hard":
+		setNormals(hard)
+		StaticModelFinal
+	case Normals == "soft":
+		setNormals(soft)
+		StaticModelFinal
+	else:
+		StaticModelFinal
+		
+@Hidden
+StaticModelFinal -->
+    case Material_Colorize != "#ffffff" && modifyTransparency:
+        set(material.opacity,opacityValue)
+        color(Material_Colorize)
+    case Material_Colorize != "#ffffff":
+        color(Material_Colorize)
+    case modifyTransparency:
+        set(material.opacity,opacityValue)
+    else:
+        StaticModelFinal.

@@ -1,0 +1,12 @@
+/**
+ * File:    building_01.cga
+ * Created: 2 Nov 2008 15:33:07 GMT
+ * Author:  andi
+ */
+ 
+version "2010.3"
+
+Building -->
+	alignScopeToAxes(y)
+	comp(f){top : color("#ff0000") Roof. | side : Facade. }
+	

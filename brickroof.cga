@@ -1,0 +1,52 @@
+/**
+ * File:    brickroof.cga
+ * Created: 26 Mar 2009 15:03:54 GMT
+ * Author:  andi
+ */
+
+version "2014.0"  
+ 
+ 
+attr brick_w = 0.2
+const brick_l = 2*brick_w
+
+
+Roof --> 
+	# create the roof mass
+	roofHip(25)
+	RoofMass
+
+RoofMass -->		
+	# scale to create some overhang
+	s(scope.sx+1,'1,scope.sz+1) center(xz)
+	# get the roof mass components (faces)
+	
+	comp(f){top : RoofFace}
+
+RoofFace --> 
+	# create Bricks and Beams on each roof face
+	Bricks
+	Beams
+
+	
+Bricks --> 
+	# Repeatedly split in x and y and insert Bricks
+	split(x){~brick_w : split(y){ {brick_l : Brick}* } }*
+
+const rot = 1.5/brick_w
+
+Brick --> 
+	# simply insert cube, scale it, rotate it
+	 s('1,'1,brick_w/3)  r(-rot,0,0) i("builtin:cube")
+	# and add some random rotation to make it irregular
+	r(rand(5),rand(5),rand(5))
+	color("#B35900")
+
+
+Beams --> 
+	# repeat-split in x to distribute the roof beams, scale and insert the,
+	split(x){~1 : s(0.2,'1,-0.2) center(x) Beam}*
+
+Beam --> 
+	# simply insert a cube asset as beam
+	i("builtin:cube") 

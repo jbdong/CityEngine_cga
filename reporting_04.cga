@@ -1,0 +1,275 @@
+/**
+ * File:    reporting_03.cga
+ * Created: 15 Nov 2011 17:44:12 GMT
+ * Author:  andi
+ */
+
+version "2012.1"  
+
+
+# ---------------------------------------
+# Attributes
+# ---------------------------------------
+
+
+@Group("City Attributes",0)
+attr greenspacePercentage = 30
+@Group("City Attributes")
+attr mixedOffice = 0.2  			# 20% of mixed use buildings is office
+	
+
+@Group("Building attributes", 1) @Range("Office","Mixed","Residential")
+attr landuseType = "Mixed"
+
+@Group("Building attributes")
+attr nFloor =
+	case landuseType == "Office": ceil(rand(6,15)*buildingHeightFactor)
+	case landuseType == "Mixed" : ceil(rand(3,12)  *buildingHeightFactor)
+	else  				        : ceil(rand(1,3)   *buildingHeightFactor)
+
+
+@Group("Building attributes")
+attr baseFloors = 
+	case landuseType == "Residential" : 0 
+	else : ceil(rand(0,3))
+
+@Group("Building attributes")
+attr floorHeight = 
+	case landuseType == "Office": rand(5,6)
+	case landuseType == "Mixed" : rand(4,5)
+	else  				        : rand(3,4)
+	
+
+
+@Group("Footprint",3)  @Range(3,6)
+attr distanceStreet = 
+	20% : 0
+	else : rand(3,6)
+
+@Group("Footprint")  @Range(4,8)
+attr distanceBuildings = 
+	50% : 0
+	else : rand(4,8)
+
+
+
+
+@Group("Viz",4)
+@Range("massOnly", "floors", "massAndFloors")
+attr vizMode = "massAndFloors"
+
+
+@Group("Mapped",99)
+attr buildingHeightFactor = 1
+
+
+
+
+# ---------------------------------------
+# Start with the lot
+# ---------------------------------------
+
+@Hidden
+attr plotArea = 0 # used to calc FAR
+
+@StartRule
+Lot --> 
+	case p(greenspacePercentage/100):
+		report("Area.Greenspace",geometry.area)
+		GreenSpace
+	else:
+		set(plotArea, geometry.area)
+		report("Area.BuildUp",geometry.area)
+		BuildingLot
+
+
+LotInner --> Lot
+LotCorner --> Lot
+
+
+# ---------------------------------------
+# BuildingLot
+# ---------------------------------------
+
+BuildingLot -->
+	report("Floor Height", floorHeight)
+	report("Floor Count", nFloor)
+	setback(distanceStreet)
+		{ streetSide: OpenSpace 
+		| remainder: Parcel }
+
+Parcel -->
+	setback(distanceBuildings/2)
+		{ noStreetSide: OpenSpace 
+		| remainder: Subparcel }	
+	NIL
+
+Subparcel -->
+	case landuseType == "Office": Office
+	case landuseType == "Mixed" : Mixed
+	else: Residential
+
+
+
+# ---------------------------------------
+# Mixed
+# ---------------------------------------
+
+Mixed -->
+	[ extrude(baseFloors*floorHeight) RetailBase ]
+	t(0,baseFloors*floorHeight,0) 
+	set(nFloor,nFloor-baseFloors)
+	offset(-5,inside) LUShape
+
+RetailBase --> 
+	MassViz
+	split(y){~floorHeight : Floor("Retail") }*
+
+
+# ---------------------------------------
+# Office Tower
+# ---------------------------------------
+
+sectionH = floor(rand(0.4,0.8)*nFloor) 
+
+Office -->
+	alignScopeToGeometry(yUp, 0, longest)
+	[ extrude(baseFloors*floorHeight) RetailBase ]
+	t(0,baseFloors*floorHeight,0) 
+	set(nFloor,nFloor-baseFloors)
+	offset(-5,inside) 
+	Tower(sectionH)
+	
+Tower(h) -->
+	case h > 1 && (scope.sx < 20 || scope.sz < 20 || geometry.area < 2000):
+		extrude(nFloor*floorHeight) Mass
+	case h > 0:
+		[ extrude(h*floorHeight) Mass ]
+		t(0,h*floorHeight,0) set(nFloor,nFloor-h)
+		offset(-4,inside) 
+		Tower(sectionH)
+	else:
+		NIL	
+
+
+# ---------------------------------------
+# Residential
+# ---------------------------------------
+
+
+Residential -->
+	alignScopeToGeometry(yUp, 0, longest)		
+	split(x){ ~1           : ResidentialGreen 
+			| (rand(10,30)): split(z){ ~1: ResidentialGreen | (rand(10,20)): ResidentialFootprint | ~1: ResidentialGreen }
+			| ~4           : ResidentialGreen }
+
+ResidentialGreen --> color("#99cc99") ResidentialGreen.
+	
+ResidentialFootprint -->		
+	50% : LShape
+	else: Footprint
+
+
+# -----------------------
+# Shapes
+# -----------------------
+
+@Group("Shapes",3) @Range(10,20)
+attr wingWidth = rand(12,25)
+
+@Group("Shapes") @Range("auto","lLeft","lRight","uShape", "basicExtrude")
+attr shape = "auto"
+
+
+LShape -->
+	50%  : LShape("l")
+	else : LShape("r")
+
+
+LUShape -->
+  case shape =="lLeft" : LShape("l")
+  case shape =="lRight" : LShape("r")
+  case shape =="uShape" : UShape
+  case shape =="basicExtrude" : Footprint
+  
+  else : // auto case, find fitting shape
+	case geometry.isRectangular(10):
+		case scope.sx > scope.sz : 
+			60%  :UShape
+			else : 50% : LShape("l") else : LShape("r")
+		else: 50% : LShape("l") else : LShape("r")
+	else: Footprint
+
+
+LShape(orient) --> 
+	case orient =="l": shapeL(wingWidth,wingWidth) {shape : Footprint}  // left L
+	else: rotateScope(0,-90,0) shapeL(wingWidth,wingWidth) {shape : Footprint}	// right L
+
+
+UShape --> shapeU(wingWidth,wingWidth,wingWidth) { shape : Footprint }	
+
+
+
+Footprint --> extrude(floorHeight*nFloor) Mass
+
+
+# -----------------------
+# Mass / Floors
+# -----------------------
+
+Mass -->
+	MassViz
+	split(y){ floorHeight: Floor(landuseType) }*
+
+Floor(type) -->	comp(f){ bottom: reverseNormals FloorBottom(type) }
+
+
+	
+FloorBottom(type) -->
+	case type == "Retail":
+		report("GFA.Retail",geometry.area) 
+	 	report("FAR",geometry.area/plotArea)
+	 	color("#ff4444")
+	 	FloorViz
+	 	
+	case type == "Office" || (type == "Mixed" && split.index < mixedOffice*split.total): 
+		report("GFA.Office",geometry.area) 
+	 	report("FAR",geometry.area/plotArea)
+	 	color("#44ff44")
+	 	FloorViz
+	 		
+	else:
+		report("GFA.Residential",geometry.area) 
+	 	report("FAR",geometry.area/plotArea)
+	 	color("#4444ff") 
+	 	FloorViz
+
+
+# -----------------------
+# Leaf Shapes 
+# -----------------------
+
+MassViz -->
+	case vizMode == "massOnly" :
+		Mass.
+	case vizMode == "massAndFloors" :
+		set(material.color.a,0.2) Mass.
+	else:
+		NIL
+
+FloorViz -->
+	case vizMode == "massOnly" :
+		NIL
+	else:
+		FloorViz.
+
+
+
+GreenSpace --> color("#22aa22") GreenSpace.
+		
+OpenSpace --> color("#777777")
+
+Ground --> color("#777777")
+
+		
+

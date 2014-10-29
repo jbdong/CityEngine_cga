@@ -1,0 +1,28 @@
+/**
+ * File:    rule.cga
+ * Created: 7 Sep 2012 07:24:42 GMT
+ * Author:  MarkusL
+ */
+
+version "2012.1"
+
+
+attr windowWidth = 1
+attr windowHeight = 2
+
+
+@StartRule
+Init-->
+	comp(f) { all : Face }
+	
+Face-->	 
+	case fileName(material.colormap)=="window.png" : Windows
+	else : NIL
+	
+Windows --> set(trim.vertical, false) alignScopeToAxes(y)  split(y){~windowHeight:split(x){~windowWidth: Window}*}*
+
+Window -->  i("assets/window_0.obj") s('1,'1,0.2) t(0,0,'-1.1) mirror(false,false,true)  
+
+
+	
+	

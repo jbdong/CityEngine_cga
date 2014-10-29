@@ -1,0 +1,77 @@
+/**
+ * File:    walls.cga
+ * Created: 16 Feb 2012 12:30:30 GMT
+ * Author:  matt, Esri R&D Center Zurich
+ */
+
+version "2014.0"
+
+
+
+@Range(.5,3.5)
+attr wallHeight = 2
+
+wallTopHeight = 0.12
+wallTopOffset = 0.08
+
+
+
+@StartRule
+Street -->
+	alignScopeToAxes(y)
+	split(v,unitSpace,0) {wallTopOffset : NIL | ~1 :  extrude(world.y, wallHeight - wallTopHeight) WallBaseTexturing | wallTopOffset : NIL}
+	t(0,wallHeight - wallTopHeight,0)
+	extrude(world.y, wallTopHeight)
+	WallTopTexturing
+
+Sidewalk -->
+	NIL
+
+#####################################################################################################################
+# TEXTURING
+#####################################################################################################################
+
+wallTexPath = "assets/walls/"
+const wallTex = fileRandom(wallTexPath + "*.jpg")
+
+@Range("auto", "1","2","3","4","5")
+attr wallTextureNumber = "auto"
+
+WallBaseTexturing -->
+	comp(f) {vertical = WallMainTexturing | all : NIL}
+
+WallMainTexturing -->
+	alignScopeToGeometry(zUp, world.lowest, world.lowest)
+	alignScopeToAxes(y)
+	setupProjection(0, scope.xy,1,1)
+	projectUV(0)
+	tileUV(0, 8, 12)
+	SetWallTexture 
+
+
+
+WallTopTexturing -->
+	comp(f) {top = WallRestTexturing |  all : WallRestTexturing}
+
+
+WallRestTexturing -->
+	alignScopeToAxes(y)
+	setupProjection(0, scope.xz,1,1)
+	projectUV(0)
+	tileUV(0, 8, 12)
+	SetWallTexture
+
+SetWallTexture -->
+	case wallTextureNumber == "auto" :
+		texture(wallTex)
+	else :
+		texture(wallTexPath + "plasterWall_" + wallTextureNumber + ".jpg")
+
+
+
+
+
+
+
+
+

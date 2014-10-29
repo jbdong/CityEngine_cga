@@ -1,0 +1,61 @@
+/**
+ * Created: 6 May 2010 11:42:36 GMT
+ * Author:  Esri R&D Center Zurich
+ */
+
+version "2010.3"
+
+
+
+attr shapeType = ""
+attr height = rand(15,25)
+
+
+attr tilewidth = 3
+@StartRule
+Lot -->
+	case shapeType == "LotInner" :
+		Lot.
+	else :
+		extrude(height) comp(f) { side :  Facade | top:  Shape }
+
+
+
+Facade --> 
+	setupProjection(0, scope.xy, ~2, ~2)
+	split(y) { 5 : Door | ~1: UpperFloors }
+
+attr windowWidth = 2.2
+attr windowHeight = 2.8
+	
+UpperFloors --> split(y) {~floorheight: Floor }*
+
+Floor --> split(x) {~tilewidth: Tile }*
+
+
+Tile --> split(x) {~1:Wall | windowWidth : split(y) {~2:Wall | windowHeight : Window | ~1 : Wall } | ~1 : Wall}
+
+Window --> 
+	s('1, '1, 0.4) t(0,0,-0.2) i("assets/window/window.obj")
+	setupProjection(0, scope.xy, scope.sx, scope.sy)
+	projectUV(0)
+	texture(fileRandom("*assets/window/1_rollo_*brown.tif")) 
+	
+Wall -->
+	projectUV(0)
+	texture("wall.tif")
+	
+attr floorheight = 4.0
+
+
+	
+
+
+Door -->
+	setupProjection(0, scope.xy, ~tilewidth*2, '1) 
+	texture("shopwin.tif")
+	projectUV(0)
+
+
+
+	

@@ -1,0 +1,39 @@
+/**
+ * File:    Rocks.cga
+ * Created: 10 May 2012 18:16:55 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+
+//@Order(1) @Range("Low","Med","High")
+//attr Level_of_Detail = "Low"
+//const highLOD = Level_of_Detail == "High" 
+//const medLOD = Level_of_Detail == "Med"
+
+@Order(2) @Range(1,5)
+attr min_Rock_SizeZ = 1
+@Order(3) @Range(1,5)
+attr max_Rock_SizeZ = 2
+@Order(2) @Range(1,5)
+attr min_Rock_SizeX = 2
+@Order(3) @Range(1,5)
+attr max_Rock_SizeX = 3
+@Order(2) @Range(1,5)
+attr min_Rock_SizeY = 2
+@Order(3) @Range(1,5)
+attr max_Rock_SizeY = 3
+
+rock = fileRandom("assets/rocks/rubblePiece_*.obj")
+
+sizeZ = rand(min_Rock_SizeZ,max_Rock_SizeZ)
+sizeX = rand(min_Rock_SizeX,max_Rock_SizeX)
+sizeY = rand(min_Rock_SizeY,max_Rock_SizeY)
+
+Rock --> 
+		 s(0,sizeZ,0) 			
+		 r(0,rand(0,360),0)		// random rotation
+		 i(rock) 
+
+

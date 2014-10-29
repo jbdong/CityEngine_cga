@@ -1,0 +1,95 @@
+/**
+ * File:    simpleBuildingShells.cga
+ * Created: 14 Jul 2008 16:03:27 GMT
+ * Author:  andi
+ */
+
+version "2012.1"
+
+// height value
+attr height =80
+
+
+
+
+
+
+
+
+// calc height with variation
+getHeight(area) = 
+	case area > 600 : rand(0,40)+height
+	case area > 200 : rand(0,40)+height/2
+	else: rand(15,30) 
+	
+	
+
+## Rules
+	
+Lot -->
+	// prepare building ground size
+	case geometry.isConcave :  LotSub(getHeight(geometry.area))	
+	else :  s('.8,'1,'.8) center(xz)  LotSub(getHeight(geometry.area))	
+	
+LotInner --> Lot	
+	
+LotSub(h) --> 
+	// trigger building rules depending on lot polygon 
+	case geometry.isRectangular(10) :
+		case scope.sx-10 < scope.sz && scope.sx+10 > scope.sz:
+			RectQuad(h)
+		else:
+			Rect(h)
+	else: 
+		Gen(h) 
+
+
+
+RectQuad(h) -->
+	case h > 30 : s('.8,'1,'.8) center(xz) extrude(h) UShaped
+	else : extrude(h) House
+	
+Rect(h) -->
+	case h > 30 : extrude(h) LShaped
+	else : extrude(h) House
+
+Gen(h) -->
+	case h > 60 : extrude(h) Tower
+	else : extrude(h) Facades
+
+
+// U-Shaped
+UShaped -->
+	split(x){ 'rand(.3,.5): Facades | ~1: SideWings }
+
+SideWings -->
+	split(z){ 'rand(.3,.45): SideWing | ~1: NIL | 'rand(.3,.45): SideWing }
+
+SideWing -->
+	30%  : Facades
+	30%  : split(x){ 'rand(0.2,0.8) : Facades }
+	else : s('1,'rand(0.2,0.9),'1) Facades
+	
+	
+// L-Shaped
+LShaped -->
+	split(x){ 'rand(.3,.5): Facades | ~1: SideWings }
+
+
+
+Tower --> 
+	case scope.sy > 5 :
+		s('0.9,'1,'0.9) center(xz) split(y){ '0.3 : Element. | '0.7 : Tower }
+	else :
+		NIL
+
+
+House -->
+	comp(f){top : Roof | side : Facades}
+
+Roof --> roofPyramid(30) comp(f){bottom : NIL | all : RoofTop}	
+
+
+// no building details an roof and facades
+Facades --> X.
+RoofTop --> X.

@@ -1,0 +1,158 @@
+/**
+ * File:    Text.cga
+ * Created: 4 Jul 2013
+ * Updated: 10 April 2014
+ * Author:  Esri R+D Center Zurich
+ */
+
+version "2014.0"
+
+
+
+attr Text = "Hello, Dave. You're looking well today."
+attr Size = 1
+
+const alphabetFolder = "General/Text/"
+
+
+
+# RULES
+
+@StartRule
+Generate -->
+	Letters(Text,Size)
+
+Letters(myString,mySize) -->
+	s(mySize,1,mySize*2) t(0,-1,0) 
+	i("builtin:cube") 
+	comp(f){ top: setupProjection(0,scope.xy,'32,'1) projectUV(0)
+				  PrintLetters(myString,len(myString)) }
+	
+PrintLetters(myString,n) -->
+	case n > 0:
+		Letter(substring(myString,0,1))
+		t('1,0,0) PrintLetters(substring(myString,1,100),n-1)		# recursive call
+	else:
+		NIL
+	
+Letter(myLetter) -->
+	case myLetter == " ": NIL
+	else: LetterTexture(getNbr(myLetter))
+	
+LetterTexture(myLetterNbr) -->
+	texture(alphabetFolder + getTextureFile(myLetterNbr))
+	translateUV(0,myLetterNbr%32/32,0)
+
+
+
+# FUNCTIONS
+
+getTextureFile(letterNbr) =
+	case letterNbr < 32: "alphabet_lowercase_letters.png"
+	case letterNbr < 64: "alphabet_uppercase_letters.png"
+	else  			   : "alphabet_numbers_and_signs.png"
+
+getNbr(letter) = 
+
+	# alphabet_lowercase_letters.png
+	case letter == "a" : 0 
+	case letter == "b" : 1
+	case letter == "c" : 2 
+	case letter == "d" : 3 
+	case letter == "e" : 4 
+	case letter == "f" : 5 
+	case letter == "g" : 6 
+	case letter == "h" : 7 
+	case letter == "i" : 8 
+	case letter == "j" : 9 
+	case letter == "k" : 10 
+	case letter == "l" : 11
+	case letter == "m" : 12
+	case letter == "n" : 13
+	case letter == "o" : 14 
+	case letter == "p" : 15 
+	case letter == "q" : 16 
+	case letter == "r" : 17 
+	case letter == "s" : 18 
+	case letter == "t" : 19 
+	case letter == "u" : 20 
+	case letter == "v" : 21 
+	case letter == "w" : 22 
+	case letter == "x" : 23 
+	case letter == "y" : 24 
+	case letter == "z" : 25 
+	case letter == "," : 26 
+	case letter == "." : 27 
+	case letter == ";" : 28 
+	case letter == "'" : 29 
+	case letter == ":" : 30 
+	case letter == "!" : 31
+
+	# alphabet_uppercase_letters.png
+	case letter == "A" : 32 
+	case letter == "B" : 33
+	case letter == "C" : 34
+	case letter == "D" : 35
+	case letter == "E" : 36
+	case letter == "F" : 37
+	case letter == "G" : 38
+	case letter == "H" : 39
+	case letter == "I" : 40
+	case letter == "J" : 41
+	case letter == "K" : 42 
+	case letter == "L" : 43
+	case letter == "M" : 44
+	case letter == "N" : 45
+	case letter == "O" : 46 
+	case letter == "P" : 47 
+	case letter == "Q" : 48 
+	case letter == "R" : 49 
+	case letter == "S" : 50 
+	case letter == "T" : 51 
+	case letter == "U" : 52 
+	case letter == "V" : 53 
+	case letter == "W" : 54 
+	case letter == "X" : 55 
+	case letter == "Y" : 56 
+	case letter == "Z" : 57 
+	case letter == "@" : 58 
+	case letter == "#" : 59 
+	case letter == "$" : 60 
+	case letter == "%" : 61 
+	case letter == "&" : 62 
+	case letter == "?" : 63 
+
+	# alphabet_numbers_and_signs.png
+	case letter == "0" : 64 
+	case letter == "1" : 65 
+	case letter == "2" : 66 
+	case letter == "3" : 67 
+	case letter == "4" : 68 
+	case letter == "5" : 69 
+	case letter == "6" : 70 
+	case letter == "7" : 71 
+	case letter == "8" : 72 
+	case letter == "9" : 73 
+	case letter == "<" : 74 
+	case letter == ">" : 75 
+	case letter == "^" : 76 
+	case letter == "[" : 77 
+	case letter == "]" : 78 
+	case letter == "{" : 79
+	case letter == "}" : 80 
+	case letter == "~" : 81
+	case letter == "*" : 82 
+	case letter == "(" : 83 
+	case letter == ")" : 84
+	case letter == "-" : 85 
+	case letter == "+" : 86 
+	case letter == "=" : 87 
+	case letter == "|" : 88 
+	case letter == "/" : 89
+	case letter == "\"": 90 
+	case letter == "\\": 91 
+	case letter == "£" : 92 
+	case letter == "°" : 93 
+	case letter == "ç" : 94 	
+	
+	else: 95

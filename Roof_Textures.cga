@@ -1,0 +1,66 @@
+/**
+ * File:    Roof Textures.cga
+ * Created: 6 Nov 2013
+ * Author:  Esri R&D Center Zurich
+ */
+
+version "2014.0"
+
+
+
+###################################################3
+# Control Attributes
+#
+
+attr FlatRoofTexture	= getFlatRoofTexture
+attr SlopedRoofTexture	= getSlopedRoofTexture
+
+
+
+######################################################
+# functions (suited for external usage)
+#
+
+getFlatRoofTexture		= fileRandom("Roofs/Flat/flat*.jpg")
+getSlopedRoofTexture	= fileRandom("Roofs/Sloped/ceramic*.jpg")
+
+
+
+###################################################3
+# Helpers
+#
+
+const flatRoofColor = 10%: .6  25%: .7  30%: .8  25%: .9 else: 1
+	
+const slopedRoofTextureDimension = rand(10,15)
+
+flatRoofTextureDimension(width) =
+	case width > 40	: rand(40,80)
+	case width > 20	: rand(20,40)
+	else 			: width
+
+
+
+###################################################3
+# RULES
+#
+
+@StartRule
+Generate -->
+	case geometry.angle(maxSlope) > 2: SlopedPlane
+	else							 : FlatPlane
+
+FlatPlane -->
+	alignScopeToGeometry(yUp, any, longest)
+	setupProjection(0,scope.xz,flatRoofTextureDimension(scope.sx),flatRoofTextureDimension(scope.sz)) projectUV(0)
+	texture(FlatRoofTexture)
+	color(flatRoofColor,flatRoofColor,flatRoofColor)
+	set(material.bumpmap,FlatRoofTexture)
+
+SlopedPlane -->
+	setupProjection(0,scope.xy,slopedRoofTextureDimension,slopedRoofTextureDimension,rand(1),rand(1)) projectUV(0)
+	texture(SlopedRoofTexture)
+	set(material.bumpmap,SlopedRoofTexture)
+	
+	
+

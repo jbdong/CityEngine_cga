@@ -1,0 +1,319 @@
+/**
+ * File:    facade_04.cga
+ * Created: 3 Nov 2008 15:31:30 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+
+/* Attributes *************************************/
+@Group("Building",1) @Range(5,40)
+attr height 			= 24
+
+@Group("Floor",2) @Range(3,6)
+attr groundfloor_height = 5.5
+@Group("Floor") @Range(3,6)
+attr floor_height 		= 4.5
+
+@Group("Tile",3) @Range(2,5)
+attr tile_width 		= 3.1
+@Group("Tile")
+attr wallColor          = "#ffffff"
+@Group("Tile") @Range(1,3)
+attr window_width		= 1.4
+@Group("Tile") @Range(1,3)
+attr door_width			= 2.1
+
+/* Assets *************************************/
+
+# Geometries
+const window_asset 			= "facades/elem.window.frame.obj"
+const round_wintop_asset 		= "facades/round_windowtop.obj"
+const tri_wintop_asset 		= "facades/triangle_windowtop.obj"
+const halfarc_asset 			= "facades/arc_thin.obj"
+const ledge_asset 			= "facades/ledge.03.twopart_lessprojection.obj"
+const modillion_asset 		= "facades/ledge_modillion.03.for_cornice_ledge_closed.lod0.obj"
+
+# Textures
+const wall_tex				= "facades/textures/brickwall2.tif"
+const wall2_tex				= "facades/textures/brickwall2_bright.tif"
+const dirt_tex				= "facades/textures/dirtmap.15.tif"
+const doortop_tex				= "facades/textures/doortoptex.jpg"
+
+
+/* Functions *************************************/
+
+# this function will return the requested texture string 
+# of the type facade/window.x.tif
+randomWindowTex = fileRandom("*facades/textures/window.*.jpg")
+randomDoorTex = fileRandom("*facades/textures/doortex.*.jpg")
+		
+const wall_inset = 0.4
+
+
+
+
+/* Initial Shape starting rule *************/
+
+# extrude the lot to building height
+@StartRule
+Lot --> extrude(height) Building
+
+
+
+# we only need the front face for this example
+Building --> comp(f) { front : FrontfacadeTex}
+
+
+
+FrontfacadeTex -->
+	setupProjection(0, scope.xy, 2.25, 1.5, 1) 		// setup 2.25m x 1.5m texture tiles (and distortion in z)
+	setupProjection(2, scope.xy, '1, '1) 	// setup texture channel 2 for dirt mapping over whole facade
+	Frontfacade
+	
+# the front facade is subdivided into one front groundfloor 
+# and upper floors
+Frontfacade -->	
+	split(y){ groundfloor_height    : Floor(split.index) 	
+		| floor_height : Floor(split.index)   		 			
+		| floor_height : Floor(split.index)		 		
+		| {~floor_height : Floor(split.index)}*			
+		| floor_height : Floor(999)						
+		| 0.5 : s('1,'1,0.3) LedgeAsset}  
+
+
+
+# depending on the floor index, floors are split into bottom ledge, tile (window) and top ledge area
+Floor(floorindex) -->
+	case floorindex == 0 : 
+		// Groundfloor has tiles only, no ledges
+		Subfloor(floorindex)
+	case floorindex == 2 : 
+		// because windows start at floor level, no bottom ledge for second floor
+		// but balcony instead 
+		split(y){~1 : Subfloor(floorindex) Balcony | 0.5 : TopLedge}
+	else : 
+		// all other floors have bottom ledge, tile and top ledge area
+		split(y){1 : BottomLedge(floorindex) | ~1 : Subfloor(floorindex) | 0.5 : TopLedge}
+	
+
+
+
+
+
+
+
+# ----------------------------------------
+# Tiles
+# ----------------------------------------
+
+# Tiles consist of small wall areas on left and right edges and repeating tiles in between
+Subfloor(floorindex) -->
+	split(x){ 0.5 : Wall(1) 
+			| { ~tile_width : Tile(floorindex) }* 
+			| 0.5 : Wall(1) }
+	
+
+# a tile consists of a centered window element and 
+# wall elements left and right.		
+Tile(floorindex) -->
+	case floorindex == 0 :
+		// the groundfloor has different dimensions and different shapes 
+		split(x){ ~1 : SolidWall 
+			|  door_width : DoorTile
+			| ~1 : SolidWall }		 
+	else : 	
+		split(x){ ~1 : Wall(getWalltype(floorindex))
+			|  window_width : WindowTile(floorindex)
+			| ~1 : Wall(getWalltype(floorindex)) }		 
+	
+
+
+
+
+
+	
+
+
+
+
+# ----------------------------------------
+# Windows
+# ----------------------------------------
+
+# different window ornaments for windowtiles on different floors
+WindowTile(floorindex) -->
+	case floorindex == 1 || floorindex == 999: Window
+	case floorindex == 2 : Window t(0,'1,0) WindowOrnamentRound
+	else : Window WindowLedge t(0,'1,0) WindowOrnamentTriangle
+	
+
+# set dimensions for the triangle window element and insert it
+WindowOrnamentTriangle --> 
+	s('1.7, 1.2, 0.3) center(x) i(tri_wintop_asset) Wall(0)
+
+# set dimensions for the triangle window element and insert it
+WindowOrnamentRound -->
+		s('1.7, 1.2, 0.4) center(x) i(round_wintop_asset) Wall(0)
+		split(x){~1 : WindowMod | window_width : NIL | ~1 : WindowMod }
+
+	
+WindowMod -->
+// the modillion asset is scaled in negative y direction 
+// which aligns its top at the window top edge
+	s(0.2,'1.3,'0.6) t(0,'-1,0) center(x) i(modillion_asset) Wall(0)
+
+
+
+WindowLedge -->
+	s('1.5, 0.2, 0.1) t(0,-0.2,0) center(x)   i("builtin:cube") Wall(0)
+	
+
+	
+	
+# firstly, the depth and the depth position of the future window is set
+# secondly, one of nine window textures is randomly selected	  
+# finally, the window geometry asset is inserted
+Window -->
+	s('1,'1,0.2) t(0,0,-0.2)
+	t(0,0,0.02)
+	[ i(window_asset) Wall(0) ]
+	Glass
+	
+Glass -->
+	setupProjection(0,scope.xy, '1, '1)
+	projectUV(0)
+	texture(randomWindowTex) 
+	set(material.specular.r, 1) set(material.specular.g, 1) set(material.specular.b, 1)
+	set(material.shininess, 4)
+	
+	
+# ----------------------------------------
+# Door
+# ----------------------------------------
+
+# The door tile is split vertically into door, arc and top area
+DoorTile -->
+	// to ensure non-elliptic arcs, the height of the arc area need to
+	// be half the width of the door (the current x scope)
+	split(y){~1 : Door | scope.sx/2 : Arcs | 0.5 : Arctop}
+
+# Adds wall material and a centered modillion
+Arctop -->
+	Wall(1)
+	s(0.5,'1,0.3) center(x) i(modillion_asset) Wall(1)
+
+# 
+Arcs -->  
+	s('1,'1,wall_inset) t(0,0,-wall_inset) Doortop
+	i("builtin:cube")  
+	split(x){ ~1 : ArcAsset 
+			| ~1 : r(0,0,-90) t('-1,0,0) ArcAsset}
+
+Doortop -->
+	setupProjection(0, scope.xy, '1, '1)
+	texture(doortop_tex) 
+	projectUV(0)
+	
+# inserts the actual arc asset
+ArcAsset --> i(halfarc_asset) Wall(1)
+
+Door -->
+	t(0,0,-wall_inset)
+	setupProjection(0,scope.xy, '1, '1)
+	texture(randomDoorTex) 
+	projectUV(0)
+	
+
+
+
+
+
+# ----------------------------------------
+# Ledges
+# ----------------------------------------
+
+
+TopLedge --> WallStripe 
+
+BottomLedge(floorindex) -->
+
+	case floorindex == 1 : split(y){~1 : Wall(0) | ~1 : s('1,'1,0.2) LedgeAsset}
+	case floorindex == 999 : split(y){~1 : WallStripe | ~1 : s('1,'1,0.2) LedgeAsset}
+	else : WallStripe
+
+WallStripe --> split(x){ 0.5 : Wall(1) | ~1 : Wall(2) | 0.5 : Wall(1) } 
+
+
+LedgeAsset --> i(ledge_asset) Wall(0)
+
+
+
+# ----------------------------------------
+# Balcony
+# ----------------------------------------
+
+Balcony --> 
+	s('1,2,1) t(0,-0.3,0) i("builtin:cube") 
+	split(y){0.2 : BalconyBeams 
+			| 0.3 : BalconyFloor 
+			| 1 : RailingBox }
+
+
+# The beams supporting the balcony are created with a repeating split
+BalconyBeams -->			
+	split(x){ ~0.4 : s(0.2,'1,'0.9) center(x)  Wall(0) }*
+
+# Get the front, left and right components (faces) of the RailingBox shape
+RailingBox -->
+	comp(f){front : Rail | left : Rail | right : Rail} // | left : Rail | right : Rail}}
+
+# set rail dimensions and insert cube to create balconyony rails
+Rail --> 
+	 s('1.1,'1,0.1) t(0,0,-0.1) center(x) i("builtin:cube") Wall(0)
+
+BalconyFloor --> Wall(0)
+
+  
+
+
+# ----------------------------------------
+# Wall
+# ----------------------------------------
+
+	
+# for the wall asset, setting the texture scale params u and v 
+# guarantees a texture mapping that nicely fits over the whole facade
+getWalltype(floorindex) = 
+	case floorindex == 0 : 1
+	case floorindex == 1 : 1
+	else : 2
+
+Wall(walltype) -->
+	// dark bricks with dirt
+	case walltype == 1 :
+		color(wallColor)
+		texture(wall_tex)  
+		set(material.dirtmap, dirt_tex)
+		projectUV(0) projectUV(2)
+	// bright bricks with dirt	
+	case walltype == 2 :
+		color(wallColor)
+		texture(wall2_tex)  
+		set(material.dirtmap, dirt_tex)
+		projectUV(0) projectUV(2)
+	// dirt only	
+	else :
+		color(wallColor)
+		set(material.dirtmap, dirt_tex)
+		projectUV(2)
+
+
+
+
+
+SolidWall -->
+		s('1,'1,wall_inset) t(0,0,-wall_inset)
+		i("builtin:cube:notex")	
+		Wall(1)		  	

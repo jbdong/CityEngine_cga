@@ -1,0 +1,74 @@
+/**
+ * File:    massmodeling_04.cga
+ * Created: 6 Nov 2008 18:41:40 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+@Group("Building",2) @Range(20,200)
+attr height = 
+	case geometry.area > 1000: rand(50,200) 
+	else: rand(20,50)
+	
+	
+@StartRule	
+Lot --> Parcel
+
+@StartRule	
+LotInner --> OpenSpace
+
+######################
+## Setback Parcels
+######################
+
+@Group("Footprint",1)  @Range(3,6)
+attr distanceStreet = 
+	20% : 0
+	else : rand(3,6)
+
+@Group("Footprint")  @Range(4,8)
+attr distanceBuildings = 
+	50% : 0
+	else : rand(4,8)
+
+
+
+@StartRule	
+Parcel --> 
+	setback(distanceStreet)
+		{ streetSide: OpenSpace 
+		| remainder: SubParcel }
+
+
+SubParcel -->
+	setback(distanceBuildings/2)
+		{ noStreetSide: OpenSpace 
+		| remainder: Footprint }		
+
+#####################
+@StartRule	
+OpenSpace -->
+	color("#77ff77")
+
+
+import lushapes : "massmodeling_01.cga"
+import towers : "massmodeling_02.cga"
+
+Footprint -->
+	case geometry.isRectangular(15):
+		25% : towers.Tower
+		else : lushapes.LUShape
+	else:
+		25%: towers.Tower
+		else : offset(-5,inside) lushapes.BasicFootprint
+
+
+
+
+
+
+	
+	
+	
+	

@@ -1,0 +1,23 @@
+/**
+ * File:    color_streetshapes.cga
+ * Created: 17 May 2009 17:21:22 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+Street --> Red
+Sidewalk --> Blue
+Crossing --> Green
+Junction --> Yellow
+JunctionEntry --> Orange
+
+
+
+
+
+Red --> color("#ff0000")
+Blue --> color("#4444ff")
+Green --> color("#00ff00")
+Yellow --> color("#fff000")
+Orange --> color("#ff9900")

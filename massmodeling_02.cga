@@ -1,0 +1,55 @@
+/**
+ * File:    massmodeling_02.cga
+ * Created: 23 May 2008 17:17:42 GMT
+ * Author:  Pascal
+ */
+
+version "2011.1"
+
+
+@Group("Building",2) @Range(20,200)
+height = 
+	case geometry.area < 1000: rand(20,50) 
+	else: rand(50,150)
+	
+@StartRule
+Lot -->	 Tower
+
+
+######################
+## Towers
+######################
+
+@Group("Facade",3)  @Range(3,6)
+attr floorheight = rand(4,5)
+	
+@StartRule
+Tower --> extrude(height) Envelope
+
+Envelope -->
+	case geometry.isRectangular(20):
+		20% : i("cyl.obj") RecursiveSetbacks	
+		else: RecursiveSetbacks
+	else: RecursiveSetbacks
+
+lowHeight 	= 50% : 0.4 else: 0.6	// switching between these two values creates visually appealing setbacks
+
+@Group("Building",2) @Range(0.3,1.2)
+attr setbackScale 	= rand(0.75,0.9)		// has to be constant
+
+RecursiveSetbacks -->
+	case scope.sy > 2*floorheight  :
+		split(y){ 'lowHeight : Mass | ~1: Setback }
+	else: 
+		s('1,floorheight,'1) Mass
+
+Setback -->																
+	s('setbackScale,'1,'setbackScale) center(xz) RecursiveSetbacks
+
+
+LotInner --> OpenSpace
+
+	
+	
+	
+	

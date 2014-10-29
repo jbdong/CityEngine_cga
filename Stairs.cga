@@ -1,0 +1,97 @@
+/**
+ * File:    Stairs.cga
+ * Created: 3 Jul 2012 17:17:37 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+const stairStepUnitRise = 0.17
+const stairStepUnitRun = 0.28
+@Hidden
+attr currentScopeSx = 0
+
+## dummy, calling rule bellow with some defaults
+## the level has, by default, 45% of the lenght of the shape in x
+
+
+//StairwayWithLevel(topColor, frontColor, levelColor) -->
+//	StairwayWithLevel(topColor, frontColor, levelColor, 0, 0, 0)
+@StartRule
+StairwayWithLevel(topColor, frontColor, levelColor, levelDim, centerDim, displacement) -->
+	set(currentScopeSx, scope.sx)
+	## first, divide into level and two stair flight of stairs
+	split(x){
+		(0.45 * scope.sx) + levelDim: 
+                        StairwayLevel(levelColor, currentScopeSx*0.45+ levelDim, currentScopeSx) |
+		~1: 
+			split(z){
+				~1 + displacement: 
+                                        t(0, ((rint((currentScopeSx-(currentScopeSx*0.45+ levelDim)) / stairStepUnitRun)) - 1)*stairStepUnitRise, 0) 
+                                        StairFlight(topColor, frontColor) |
+				centerDim: 
+                                        NIL|
+				~1: 
+                                      rotateScope(0, 180, 0) 
+                                      StairFlight(topColor, frontColor)
+			}
+	}
+
+StairwayLevel(levelColor, length, total) -->
+	t(0, ((rint((total-length) / stairStepUnitRun)) - 1)*stairStepUnitRise, 0)
+	s('1, stairStepUnitRise, '1)
+	i("builtin:cube")
+	comp(f){
+		top: 
+			color(levelColor)
+			set(material.specular.r, 0) 
+			set(material.specular.g, 0) 
+			set(material.specular.b, 0)
+			set(material.shininess, 0)
+			set(material.opacity, 1)
+			SetMaterial("stairwaylevel")|
+		all:
+			SetMaterial("stairwaylevel")
+			
+	}
+
+StairFlight(topColor, frontColor) -->
+	split(x){
+		~stairStepUnitRun: 
+			t(0, (split.index)*stairStepUnitRise, 0)
+			StairwayStep(topColor, frontColor)
+		|
+		{
+			stairStepUnitRun: 
+				t(0, (split.index)*stairStepUnitRise, 0)
+				StairwayStep(topColor, frontColor)
+		}*		
+	}
+
+
+StairwayStep(topColor, frontColor) -->
+	s('1, stairStepUnitRise, '1)
+	i("builtin:cube")
+	comp(f){
+		top: 
+			color(topColor)
+			set(material.specular.r, 0) 
+			set(material.specular.g, 0) 
+			set(material.specular.b, 0)
+			set(material.shininess, 0)
+			set(material.opacity, 1)
+			SetMaterial("stairwaystep")|
+		all:
+			color(frontColor)
+			set(material.specular.r, 0) 
+			set(material.specular.g, 0) 
+			set(material.specular.b, 0)
+			set(material.shininess, 0)
+			set(material.opacity, 1)
+			SetMaterial("stairwaystep")
+			
+	}
+
+SetMaterial(name) -->
+	set(material.name, name)
+	TerminalMaterial.

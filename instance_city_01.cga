@@ -1,0 +1,75 @@
+/**
+  * File:    instanceCity_01.cga
+ * Created: 5 May 2010 09:21:09 GMT
+ * Author:  andi
+ */
+
+version "2014.0"
+ 
+# select the asset that fits best 
+attr scifiasset = assetBestSize("*assets/scifi/scifi_building_*.obj","xz")
+ 
+
+@StartRule 
+Lot -->  
+	Ground 
+	convexify comp(f){all : innerRect Footprint}
+
+@StartRule 
+LotCorner --> Ground
+@StartRule 
+LotInner --> Lot
+  
+  
+  
+Footprint --> 
+	alignScopeToAxes(y)
+	set(material.shininess, 20)
+	set(material.specular.r, 0.7)
+	set(material.specular.g, 0.7)
+	set(material.specular.b, 0.7)
+	Building(scifiasset)
+	
+
+ 
+Building(asset) -->
+	s('1,0,'1) 
+	i(asset) Asset.
+	
+	
+
+###################################
+# Streets
+#
+
+
+@StartRule 
+Street --> StreetTex 
+@StartRule 
+Sidewalk --> comp(f) {all: split(y) { 2 : StreetLine | ~1: Ground } } 
+@StartRule 
+Crossing --> StreetTex
+@StartRule 
+Junction --> StreetTex
+@StartRule 
+JunctionEntry --> StreetTex
+
+StreetTex --> setupProjection(0.0, scope.xz, 600, 300)  texture("scifi/scifi_texture_street_dark.jpg") projectUV(0.0)
+StreetLine --> setupProjection(0.0, world.xz, 900, 150) texture("scifi/scifi_texture_street_bright.jpg") projectUV(0.0) 
+Ground --> setupProjection(0.0, world.xz, 300, 2048) projectUV(0.0) texture("scifi/scifi_texture_street_dark.jpg") 
+
+
+
+@StartRule
+Joint                         --> Street
+@StartRule
+Freeway                       --> Street
+@StartRule
+FreewayEntry                  --> Street
+@StartRule
+Roundabout                    --> Street
+@StartRule
+RoundaboutIsland              --> Sidewalk
+@StartRule
+RoundaboutEntry               --> Street
+

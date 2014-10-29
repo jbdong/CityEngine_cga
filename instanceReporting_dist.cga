@@ -1,0 +1,39 @@
+/**
+ * File:    instanceReporting.cga
+ * Created: 7 Apr 2010 14:28:33 GMT
+ * Author:  andi
+ */
+
+version "2012.1"
+
+
+// this rule prepares report variables that are read by the python export script
+InstanceReport(asset) -->
+
+	## report asset identifier
+	report("asset", asset)	
+	
+	
+	
+	
+	## report scale values relative to asset
+	report("xscale", scope.sx/assetInfo(asset, "sx"))
+	report("yscale", scope.sy/assetInfo(asset, "sy")) 
+	report("zscale", scope.sz/assetInfo(asset, "sz"))
+
+	## report rotation in world coords
+	report("xrot", convert(x, scope, world, orient, 0,0,0))
+	report("yrot", convert(y, scope, world, orient, 0,0,0))
+	report("zrot", convert(z, scope, world, orient, 0,0,0))
+	
+	
+	## scale and center scope
+	s(0.001,'1,0.001) center(xz)
+	
+	## report position in world coords
+	report("xpos", convert(x, scope, world, pos, 0,0,0))
+	report("ypos", convert(y, scope, world, pos, 0,0,0))
+	report("zpos", convert(z, scope, world, pos, 0,0,0))
+
+	NIL
+	

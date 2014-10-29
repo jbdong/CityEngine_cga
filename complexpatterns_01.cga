@@ -1,0 +1,227 @@
+/**
+ * File:    complexpatterns_01.cga
+ * Created: 18 Sep 2008 14:10:07 GMT
+ * Author:  andi
+ */
+ 
+version "2011.1" 
+ 
+ 
+// User Attribute 
+
+@Group("Building", 1) @Range(5,40)
+attr buildingH = 27  			// building height
+
+@Group("Facade", 2) @Range(3,6)
+attr floorH = 3.5				// floor height
+@Range(3,6)
+attr groundfloorH = floorH + 1  // groundfloor height
+@Range(1,4)
+attr nSymmetries = 2
+@Range(0.1,1)
+attr borderwallW = 0.3			// width of border wall stripe
+@Range(0.1,0.8)
+attr ledgeH = 0.3				// ledge height
+
+@Group("Window",3) @Range(1,5)
+attr windowW = 2.5				// window width
+@Range(1,5)
+attr milkGlassW = windowW/2		// milkglass blend width
+@Range(0.1,2.5)
+attr blindH = 0.8				// blind height
+@Range(0.01,0.5)
+attr frameW = 0.07				// frame width
+
+@Group("Balcony",4) @Range(3,6)
+attr balconyDepth = 2
+
+@Group("Colors",5)
+attr brightblue = "#86b1c7" 
+attr darkblue	= "#33556c"
+attr red 		= "#5c3f40"
+attr grey 		="#6b7785"
+attr white 		= "#ffffff"
+
+
+tileW = windowW + milkGlassW	// total tile width
+const barDiameter = 0.04
+
+// assets
+const cyl_v = "primitives/cylinder.vert.8.notop.tex.obj"
+const cyl_h = "primitives/cylinder.hor.8.notop.tex.obj"
+const window_tex = "facade/windows/1_glass_2_blue.tif"
+const milkGlass_tex = "facade/windows/blend_tex.png"
+
+
+
+
+
+
+// --------------------------
+// Volume
+// --------------------------
+
+Lot --> 
+	extrude(buildingH)  // extrude the building
+	split(y){ ~1: MainPart | floorH : UpperPart }  // split top floor from lower floors
+
+UpperPart --> 
+	split(z){ ~1: TopFloor | balconyDepth : Balcony } // create a set-back by splitting in the direction of the building depth
+
+MainPart --> 
+	comp(f){ front : Facade | side : Wall | top : Roof }  // create a facade on the front face, walls on the side faces, and a roof on the top face
+	
+TopFloor --> 
+	comp(f){ front : Floor(-1) | side : Wall | top : Roof }  // create a floor (marked with -1 as top floor) on the front face, walls on the side and roof on the top face
+
+Balcony -->
+	s(scope.sx-2*borderwallW,0.7,scope.sz-borderwallW)	center(x) // set balcony height to 0.7 meters (railing height)
+	comp(f){ front : Railing | left : Railing | right : Railing }
+
+
+
+// --------------------------
+// Facade and Floors
+// --------------------------
+
+Facade --> 
+	// split the Facade into a groundfloor and repeated upper floors (all floors are marked with their split index, which represents the floor number)
+	split(y){ ~groundfloorH : Floor(split.index) |  { ~floorH : Floor(split.index) }* }  
+
+Floor(floorIndex) --> 
+	// create a narrow wall element on both sides of every floor. the floorIndex parameter is passed on to be used later
+	split(x){borderwallW : Wall | ~1 : FloorSub(floorIndex) | borderwallW : Wall }  
+	
+FloorSub(floorIndex) -->	
+	case floorIndex == 0 : // ground floor with index 0.    
+		split(y){ 1 : Wall | ~1 : TileRow(floorIndex) | ledgeH : Wall}  
+	case floorIndex > 0 :    // upper floors
+		split(y){ ~1 : TileRow(floorIndex) | ledgeH : Ledge }
+	else :                   // topfloor with index -1. 
+		TileRow(floorIndex) 
+		
+
+
+// --------------------------
+// Tiles
+// --------------------------
+
+TileRow(floorIndex) --> 
+	case floorIndex == -1 :
+		split(x){ ~windowW : Tile(-1) }* 		// Repeating shape Tiles on the top floor, marked again with -1
+	else : 
+		split(x){ ~tileW*nSymmetries : DoubleTile(floorIndex,split.index) }*  // the floor is subdivided into regular DoubleTile shapes, the floor index is passed as parameter
+
+
+// depending on the position of the DoubleTile shape in the pattern, the brightblue walls are aligned left or right of the windows
+DoubleTile(floorIndex,tileIndex) -->    
+	case tileIndex%2 + floorIndex%2 == 1 :  // windows are right-aligned
+		split(x){ ~milkGlassW : MilkGlass | ~windowW : Tile(tileIndex) }* 
+	else : // windows are left-aligned 
+		split(x){ ~windowW : Tile(tileIndex) | ~milkGlassW : MilkGlass }* 
+
+
+
+Tile(tileIndex) --> 
+	setupProjection(0,scope.xy,scope.sx,scope.sy) // setup the texture coordinates for the windows
+	split(x){ frameW : Frame Bracing // this triggers the window frame as well as the bracing on the left side of the window
+			// the center window is split into Frame, Window, Frame, Blind, and Frame from bottom to top
+			| split(y){ frameW : Frame 
+					  | ~1 : Window(tileIndex) 
+					  | frameW : Frame  
+					  | blindH : Blind 
+					  | frameW : Frame }  
+			| frameW : Frame Bracing } // frame and bracing on the window's right side
+
+
+
+// --------------------------
+// Windows
+// --------------------------
+
+Window(tileIndex) -->
+	case tileIndex%nSymmetries >= 1:  // the Subwindows are aligned depending on the DoubleTile position 
+		split(x){ ~1 : Subwindow("right") | frameW : Frame | ~1 : Glass             } 	// right-aligned in the left half of the window 
+	case tileIndex%nSymmetries >= 0:
+		split(x){ ~1 : Glass 			  | frameW : Frame | ~1 : Subwindow("left") }   // left-aligned in the right half of the window 
+	else:
+		split(x){ ~1 : Glass              | frameW : Frame | ~1 : Glass             }   // no subwindow for the topfloor windows (marked with tileindex = -1)
+	
+Subwindow(align) -->
+	case align == "left" : 
+		split(x){~3 : RedWindow | ~2 : Glass}	// put the RedWindow to the left
+	else : 
+		split(x){~2 : Glass  | ~3 : RedWindow }	// and to the right otherwise
+
+RedWindow --> 
+	split(x){ frameW : RedFrame   // left...
+			| ~1 : split(y){ frameW : RedFrame | ~1 :RedGlass | frameW : RedFrame }  // ... bottom, top ...
+			| frameW : RedFrame }	// ... and right frame
+
+RedGlass -->
+	split(y){ ~1 : Glass | frameW/2 : t(0,0,-frameW) Frame | ~1 : t(0,0,-frameW) Glass }
+
+
+// --------------------------
+// Materials
+// --------------------------
+
+Wall --> color(darkblue)
+
+Blind --> color(grey)
+
+Frame --> 
+	extrude(frameW) color(white)	// extrude the frame to the front
+
+RedFrame --> 
+	t(0,0,-frameW) extrude(frameW*4) color(red)
+
+Glass --> 
+	projectUV(0)  // apply texture coordinates to current shape geometry
+	texture(window_tex) color(white) // and assign texture and color
+	set(material.specular.r, 0.4) set(material.specular.g, 0.4) set(material.specular.b, 0.4)
+	set(material.shininess, 4)
+	set(material.reflectivity,0.3)
+	
+MilkGlass --> 
+	s('1,'1,frameW*1.2) i("builtin:cube") 
+	color(brightblue)
+	setupProjection(0, scope.xy, scope.sx,scope.sy, 0) texture(milkGlass_tex) projectUV(0)
+	set(material.specular.r, 0.7) set(material.specular.g, 0.7) set(material.specular.b, 0.7)
+	set(material.shininess, 20)
+	set(material.reflectivity,0.05)
+	
+
+
+// --------------------------
+// Detail Elements
+// --------------------------
+
+Ledge --> 
+	Wall		// the ledge consists of a back wall...
+	[ s('1,'0.9,0.2) i("builtin:cube") Wall ]	// ...a cube...
+	t(0,-0.1,0.2) s('1,scope.sy+0.1,0.03) i("builtin:cube") Wall  // and a thin cube serving as a cover plate 
+
+Railing --> 
+	[ t(0,scope.sy-barDiameter/2,0) HBar ]		// horizontal bar
+	set(trim.vertical, false)					// disable vertical trimming for the following elements to prevent the vertical corner bars from being cut
+	split(x){ ~tileW/3 :  VBar }*  				// and evenly distribute vertical bars with the help of a repeat split with a floating split width
+
+VBar --> s(barDiameter,'1,barDiameter) t(0,0,-barDiameter) i(cyl_v) color(white)  // insert a vertical cylinder to create the bar
+
+HBar --> s('1,barDiameter,barDiameter) t(0,0,-barDiameter) i(cyl_h) color(white)  // insert a horizontal cylinder to create the bar
+
+Bracing --> 
+	s(barDiameter,'1,0.15) center(x) i("builtin:cube")					
+	split(y){ 0.01 : Wall | ~1 : t(0,0,0.15) VBar | 0.01 : Wall }		//top and bottom mountings, and a vertical bar in the middle
+
+
+
+
+
+@Description("A Variation in Red")
+style Red_Color_Theme
+attr brightblue = "#FF8080"
+attr darkblue = "#D20000"
+attr grey = "#ECCACA"
+attr red = "#361B1B"

@@ -1,0 +1,142 @@
+/**
+ * File:    Facades.cga
+ * Created: 11 May 2012 19:56:15 GMT
+ * Author:  craig mccabe
+ */
+
+version "2014.0"
+
+@Order(1) @Range("No","Yes")
+attr roofVisible = "Yes"
+
+@Order(2) @Range(0,1)
+attr bldgTransparency = 1
+
+@Order(1) @Range("M","A","Benjarong","C","Central Plant (M)","Central Plant (O)","Central Plant (Q)","D","E","F","G","Gym","H","J","L","M","O","OA","Q","Restroom","S","U.S. Post Office","W","Z")
+attr excludeBuilding = "M"
+
+// floor & facade tile dimensions
+attr FLOORCOUNT				= 1				//FLOORCOUNT is an attribute of Buiilding polygon feature
+attr SHORTNAME 				= "unknown"
+attr groundfloor_height     = 3.6576		
+attr floor_height           = 3.6576
+attr tile_width 	   		= 3
+
+attr wallColor              = "#ffffff"
+attr windowColor 			= "#000000"
+
+// textures
+frontdoor_tex	= "facades/textures/shopdoor.tif"
+//wall_tex 		= "facades/textures/wall_wood_"+SHORTNAME+".jpg"	// texture exterior according to building name attribute (unique texture.jpg file for each bldg)
+wall_tex 		= "facades/textures/wall_wood_M.jpg"
+dirt_tex		= "facades/textures/dirtmap.15.tif"
+roof_tex		= "roofs/roof.jpg"
+
+randomWindowTexture = fileRandom("facades/textures/window.*.tif")
+
+
+// geometries
+window_asset 	= "facades/elem.window.frame.obj"
+
+Building -->
+	comp(f){ front : FrontFacade | side : SideFacade | top : Roof }
+	
+Lot -->
+	extrude(FLOORCOUNT * floor_height) Building
+
+FrontFacade -->
+	setupProjection(0, scope.xy, 1.5, 1, 1)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){groundfloor_height : Groundfloor | { ~floor_height: Floor }* }
+
+SideFacade -->
+	setupProjection(0, scope.xy, 1.5, 1, 1)
+	setupProjection(2, scope.xy, scope.sx, scope.sy)
+	split(y){ groundfloor_height : Floor | { ~floor_height : Floor }* }
+	
+Floor -->
+	split(x){ 0.5 : Wall | {~tile_width : Tile }* | 0.5 : Wall }
+
+Groundfloor --> 
+	split(x){ 0.5 : Wall | {~tile_width : Tile }* | ~tile_width: EntranceTile | 0.5 : Wall }
+
+Tile -->
+	split(x){ ~1 : Wall | 2.2 : split(y){ 1: Wall | 1.7: Window | ~1: Wall } | ~1 : Wall}
+
+EntranceTile --> 
+	split(x){ ~1 : SolidWall | 2 : split(y){ 2.5 : Door | ~2: SolidWall } | ~1 : SolidWall}
+	
+Window --> 
+	case scope.sx > 1.4:
+		split(x){ ~1: SashWin | ~1: SashWin }
+	else:
+		SashWin
+	
+SashWin -->
+	setupProjection(0, scope.xy, '1, '1) projectUV(0)
+	texture(fileRandom("assets/windowtextures/sash*"))
+	set(material.reflectivity, 0.1)
+	set(material.shininess, 10)
+	set(material.specular.r, 0.7)
+	set(material.specular.g, 0.7)
+	set(material.specular.b, 0.7)
+	
+	
+/*
+	case SHORTNAME != excludeBuilding :
+		s('1,'1,0.4)
+		t(0,0,-0.25)
+		set(material.opacity,bldgTransparency)
+		i(window_asset)
+		color(windowColor)
+	else :
+		NIL
+*/
+	
+Door -->
+	case SHORTNAME != excludeBuilding :
+		s('1,'1,0.1)
+		t(0,0,-0.5)
+		set(material.opacity,bldgTransparency)
+		texture(frontdoor_tex)
+		i("builtin:cube")
+	else: 
+		NIL
+		
+Wall -->
+	case SHORTNAME != excludeBuilding :
+		color(wallColor)
+		texture(wall_tex)
+		set(material.opacity,bldgTransparency)
+		set(material.dirtmap, dirt_tex)
+		projectUV(0) projectUV(2)
+	else :
+		NIL
+	
+SolidWall -->
+//	case SHORTNAME != "M" :
+	case SHORTNAME != excludeBuilding :
+		color(wallColor)
+		s('1,'1,0.4)
+		t(0,0,-0.4)
+		texture(wall_tex)
+		set(material.opacity,bldgTransparency)
+		set(material.dirtmap, dirt_tex)
+		i("builtin:cube:notex")	
+		projectUV(0) projectUV(2)
+	else :
+		NIL
+
+Roof --> 
+//	case roofVisible == "Yes" && SHORTNAME != "M":
+	case roofVisible == "Yes" && SHORTNAME != excludeBuilding :
+		setupProjection(0, scope.xy, scope.sx, scope.sy)
+		texture(roof_tex)
+		set(material.opacity,bldgTransparency)
+		projectUV(0)
+	else : NIL
+
+RoofM -->
+	translate(rel, world, 0, FLOORCOUNT*floor_height, 0)
+	set(material.opacity,0.3)
+	

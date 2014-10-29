@@ -1,0 +1,328 @@
+/**
+ * File:    Building_From_Footprint.cga
+ * Created: 20 Mar 2011 16:42:13 GMT
+ * Updated: 10 April 2014
+ * Author:  Esri R&D Center Zurich
+ */
+ 
+ 
+version "2014.0"
+
+
+
+@Hidden(Usage,BuildingHeight,UpperfloorHeight)
+import Facade_Textures:"/ESRI.lib/rules/Facades/Facade_Textures.cga" (BuildingHeight=Eave_Ht,UpperfloorHeight=Floor_Ht*unitScale,Usage=Usage)
+@Hidden(Usage,UpperfloorHeight)
+import Facade_Schematic:"/ESRI.lib/rules/Facades/Facade_Schematic.cga" (UpperfloorHeight=Floor_Ht*unitScale,Usage=Usage)
+import Roof_Textures:"/ESRI.lib/rules/Roofs/Roof_Textures.cga"
+
+
+
+###################################
+# Attributes
+#
+
+@Group("Building Settings",1) 
+
+@Order(1) @Range(1,400) @Description("Distance from ground to bottom of roof") 
+attr Eave_Ht 		= _getInitialEaveHeight
+@Order(2) @Range(1,400) @Description("Distance from ground to top of roof") 
+attr Ridge_Ht 		= _getInitialRidgeHeight
+@Order(3) @Range("Random","Agricultural","Assembly","Educational","Industry","Mercantile","Office","Other","Public","Residential","Service","Transport","Unknown","Utility")
+attr Usage 			= _getInitialUsage
+@Order(4) @Range("extrusion","setback top","setback facade","setback base","setback everywhere")
+attr Building_Form 	= _getInitialBuildingForm
+@Order(5) @Range("flat","shed","pyramid","gable","hip","half-hip","gablet","gambrel","mansard","gambrel-flat","mansard-flat","vault","dome","saltbox","butterfly")								# gable & shed combinations
+attr Roof_Form 		= _getInitialRoofForm
+@Order(6) @Range(2.9,5.2) @Description("in Meters")
+attr Floor_Ht 		= 3.7
+@Hidden
+attr Roof_Ht 		= (Ridge_Ht - Eave_Ht) * unitScale
+
+@Group("Visualization Options",2) 
+
+@Order(1) @Range("realistic with facade textures","schematic facades","solid color")
+attr Representation = "realistic with facade textures"
+@Order(2) @Range(0,1)
+attr Transparency 	= 0
+@Order(3) @Range(0,1)
+attr OverwriteColor = "#ffffff"
+
+@Group("Rule Options") 
+
+@Order(2) @Range("Meters","Feet") @Description("Unit of Height Attributes") 
+attr Unit = "Meters"
+
+
+
+###################################
+# Consts
+#
+
+# user-driven constants
+const unitScale = case Unit=="Feet": 1/0.3048006096012192 else: 1
+
+# for curved roofs such as dome or vault
+const curvedAngleResolution = 10	
+
+
+
+###################################
+# Functions
+#
+
+# for curved roofs such as dome or vault
+calcSegmentHt(n) = Roof_Ht * (cos(n*curvedAngleResolution) - cos((n+1)*curvedAngleResolution))
+
+_getInitialBuildingForm =
+	case Eave_Ht*unitScale < 50 : "extrusion"
+	case Eave_Ht*unitScale > 100: "setback everywhere"
+	else                        : 5%:"extrusion" 15%:"setback top" 15%:"setback facade" 15%:"setback base" else:"setback everywhere"
+
+_getInitialUsage =
+	case Eave_Ht>30: "Random" else: 80%:"Residential" else:"Random"
+
+_getInitialEaveHeight =
+	case geometry.area < 100 : geometry.area/rand(5,10)
+	case geometry.area < 1000: geometry.area/rand(15,25)
+	case geometry.area < 7000: geometry.area/rand(10,25)
+	else                     : geometry.area/rand(70,200)
+
+_getInitialRidgeHeight =
+	case Eave_Ht<30: Eave_Ht+rand(3,6) else: Eave_Ht
+
+_getInitialRoofForm =
+	case Ridge_Ht < Eave_Ht+1: "flat"
+	else: 40%: "hip" 50%: "gable" else: "gambrel"
+
+
+
+###################################
+###################################
+#
+# RULES
+#
+###################################
+###################################
+
+@StartRule
+Generate -->
+	cleanupGeometry(all,1)
+	alignScopeToAxes(y) s('1,0,'1)		# make it horizontal i.e. scale it flat
+	alignScopeToGeometry(yUp, 0, longest)
+	set(Eave_Ht,Eave_Ht*unitScale)
+	set(Floor_Ht,Floor_Ht*unitScale)
+	report("Footprint Area (m2)",geometry.area) report("Nbr of Floors",rint(Eave_Ht/Floor_Ht)) 
+	set(material.opacity,1-Transparency)
+	color(OverwriteColor)
+	Footprint
+
+
+
+###################################
+# Building Mass
+#
+
+Footprint -->
+	case scope.sz < 10 || scope.sx < 10:
+		Extrusion(Eave_Ht,true,1)
+	case Building_Form == "setback top":
+		SetbackTop
+	case Building_Form == "setback facade":
+		SetbackFacade
+	case Building_Form == "setback base":
+		SetbackBase
+	case Building_Form == "setback everywhere":
+		SetbackAll
+	else:
+		Extrusion(Eave_Ht,true,1)
+
+SetbackTop --> 
+	split(x){ 'rand(0.1,0.3): Extrusion(Eave_Ht-rint(rand(3))*Floor_Ht,false,4)
+			| ~1            : Extrusion(Eave_Ht,true,6)
+			| 'rand(0.1,0.3): Extrusion(Eave_Ht-rint(rand(3))*Floor_Ht,false,4) }
+
+SetbackFacade -->
+	split(z){ 'rand(0.03,0.2): Extrusion(Eave_Ht*rand(0.2,0.8),false,2)
+			| ~1  			: Extrusion(Eave_Ht,true,6)
+			| 'rand(0.03,0.2): Extrusion(Eave_Ht*rand(0.2,0.8),false,2) }
+
+SetbackBase -->
+	[ extrude(3*Floor_Ht) Mass(false) ]
+	t(0,3*Floor_Ht,0)
+	split(x){ 'rand(0.6,0.8): Extrusion(Eave_Ht-3*Floor_Ht,true,6) }
+
+SetbackAll -->
+	[ extrude(3*Floor_Ht) Mass(false) ]
+	t(0,3*Floor_Ht,0)
+	set(Eave_Ht,Eave_Ht-3*Floor_Ht)
+	split(x){ 'rand(0.6,0.8): 
+		split(z){ '0.2: Extrusion(Eave_Ht*rand(0.2,0.8),false,2)
+				| ~1  : SetbackTop
+				| '0.2: Extrusion(Eave_Ht*rand(0.2,0.8),false,2) }
+	}
+	
+Extrusion(height,constructRoof,maxLength) -->
+	convexify(maxLength) 
+	comp(f){ all: alignScopeToGeometry(yUp, 0, longest) ExtrusionConvexified(height,constructRoof,maxLength) }
+	
+ExtrusionConvexified(height,constructRoof,maxLength) -->
+	case scope.sx < maxLength+1 || scope.sz < maxLength+1: NIL
+	else: 
+		report("Gross Floor Area (m2)",geometry.area*rint(height/Floor_Ht))
+		extrude(height) Mass(constructRoof)
+
+Mass(constructRoof) -->
+	case constructRoof:
+		comp(f){side : Facade | top : Roof }
+	else:
+		comp(f){side : Facade | top : RoofPlane }
+		
+		
+
+###################################
+# Roof Generation
+#
+
+Roof -->
+	case Roof_Form == "shed"		: ShedRoof
+	case Roof_Form == "pyramid"		: PyramidRoof
+	case Roof_Form == "gable"		: GableRoof
+	case Roof_Form == "hip"			: HipRoof
+	case Roof_Form == "half-hip"	: HalfHipRoof
+	case Roof_Form == "gablet"		: GabletRoof
+	case Roof_Form == "gambrel"		: GambrelRoof
+	case Roof_Form == "mansard"		: MansardRoof
+	case Roof_Form == "gambrel-flat": GambrelFlatRoof
+	case Roof_Form == "mansard-flat": MansardFlatRoof
+	case Roof_Form == "vault"		: VaultRoof
+	case Roof_Form == "dome"		: DomeRoof
+	case Roof_Form == "saltbox"		: SaltboxRoof
+	case Roof_Form == "butterfly"	: ButterflyRoof
+	else							: FlatRoof
+
+# basic roof types
+	
+ShedRoof -->
+	roofShed(15) RoofMassScale
+
+GableRoof -->
+	roofGable(45,0,0,false,0) RoofMassScale
+
+HipRoof -->
+	roofHip(45) RoofMassScale
+
+PyramidRoof -->
+	roofPyramid(45) RoofMassScale
+
+# gable & hip combinations
+
+HalfHipRoof -->
+	roofGable(45,0,0,false,0) s('1,Roof_Ht,'1) 	# creates a gable roof and sets its height to the given roof height
+	split(y){ '0.5: RoofMass(true)				# ... 
+					comp(f){ bottom: NIL | horizontal: set(Roof_Ht,Roof_Ht*0.5) HipRoof } } # ... and invokes a hip roof on the top
+
+GabletRoof -->
+	roofHip(45) s('1,Roof_Ht,'1)
+	split(y){ '0.5: RoofMass(true) 
+					comp(f){ bottom: NIL | horizontal: set(Roof_Ht,Roof_Ht*0.5) GableRoof } }	
+
+# gable/hip double-pitched
+
+GambrelRoof -->
+	roofGable(70,0,0,false,0) 
+	split(y){ Roof_Ht*0.7: RoofMass(true) 
+						   comp(f){ bottom: NIL | horizontal: set(Roof_Ht,Roof_Ht*0.3) GableRoof } }
+
+MansardRoof -->
+	roofHip(70)
+	split(y){ Roof_Ht*0.7: RoofMass(true) 
+						   comp(f){ bottom: NIL | horizontal: set(Roof_Ht,Roof_Ht*0.3) HipRoof } }
+
+# gable/hip with flat top
+
+GambrelFlatRoof -->
+	roofGable(45,0,0,false,0) 
+	split(y){ Roof_Ht: RoofMass(false) }
+
+MansardFlatRoof -->
+	roofHip(45) 
+	split(y){ Roof_Ht: RoofMass(false) }
+
+# round roofs
+
+VaultRoof -->
+	VaultRoof(90/curvedAngleResolution-1)
+
+VaultRoof(n) -->
+	case n > 0: roofGable(n*curvedAngleResolution,0,0,false,0)
+		        split(y){ (calcSegmentHt(n)): RoofMass(n!=1) 
+									          comp(f){ bottom: NIL | horizontal: VaultRoof(n-1) } }
+	else: NIL
+
+DomeRoof -->
+	DomeRoof(90/curvedAngleResolution-1)
+
+DomeRoof(n) -->
+	case n > 0: roofHip(n*curvedAngleResolution)
+		        split(y){ (calcSegmentHt(n)): RoofMass(n!=1) 
+									          comp(f){ bottom: NIL | horizontal: DomeRoof(n-1) } }
+	else: NIL
+
+# gable & shed combinations
+
+SaltboxRoof -->
+	roofShed(45) s('1,1.5*Roof_Ht,'1)
+	split(y){ '0.333: RoofMass(true) 
+					  comp(f){ bottom: NIL | horizontal: set(Roof_Ht,Roof_Ht*0.5) roofGable(45,0,0,false,geometry.nVertices-1) RoofMassScale } }
+
+ButterflyRoof -->
+	split(y){ '0.5: roofShed(45,geometry.nVertices/2) RoofMassScale | '0.5: ShedRoof }
+
+# flat roof
+
+FlatRoof -->
+	case Roof_Ht > 0.1:
+		RoofPlane offset(-0.4,border) extrude(Roof_Ht) RoofMass(false)
+	else:
+		RoofPlane
+	
+# roof volume
+	
+RoofMassScale -->
+	s('1,Roof_Ht,'1)
+	RoofMass(false)
+	
+RoofMass(removeBottomAndTop) -->
+	case removeBottomAndTop:
+		comp(f){ horizontal: NIL | vertical: Facade | all: RoofPlane }
+	else: # remove only the bottom face
+		comp(f){ bottom: NIL | vertical: Facade | all: RoofPlane }
+
+
+
+###################################
+# Surface Texturing & Coloring
+#
+
+RoofPlane -->
+	case Representation == "realistic with facade textures":
+		Roof_Textures.Generate
+	else:
+		SolidColor
+
+Facade -->
+	case Representation == "realistic with facade textures": 
+		Facade_Textures.Generate
+	case Representation == "schematic facades":
+		case OverwriteColor == "#ffffff":
+			Facade_Schematic.Generate
+		else:
+			set(Facade_Schematic.SecondaryColor,OverwriteColor)
+			Facade_Schematic.Generate
+	else: 
+		SolidColor
+
+SolidColor -->
+	color(OverwriteColor)
+	

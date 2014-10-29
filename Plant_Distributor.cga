@@ -1,0 +1,273 @@
+/**
+ * File:    Esri Vegetation Library with LumentRT 3D Plants - Plant Loader.cga
+ * Created: 27 Oct 2013 09:32:34 GMT
+ * Author:  Esri R&D Center Zurich
+ */
+
+version "2014.0"
+
+
+
+import Plant: "Plant_Loader.cga"
+
+
+
+######################################################
+# Control Attributes (set by user or geodatabase)
+#
+
+@Order(1) @Range("Random Forest","Tropical","Random Shrub","Zone 6 Trees","Zone 7 Trees","Zone 8 Trees","Zone 10 Trees","Custom") @Description("'Custom' is slow i.e. don't use on city scale (for such a case, copy the print out of your custom mix as const into the rules).")
+attr Mix 				= "Random Forest"
+@Order(2) @Range(Sparse = 0.2, Moderate = 0.5, Natural = 1.0, Dense = 1.6, Overgrown = 2.5) @Description("Take care, large polycounts can emerge easily...")
+attr Density 			= 1.0
+@Order(3) @Range("Uniform","Uniform without trunk overlaps","Uniform without crown overlaps","Centered","Border","Along Street","South") @Description("Distribution of plant on surface")
+attr Distribution 		= "Uniform"
+
+# Custom Mix
+@Group("Custom Mix",4) @Order(1) @Description("Filter common name")
+attr Keyword 	= ""
+@Group("Custom Mix") @Order(2) @Range(0,40)
+attr MinHeight 	= 0
+@Group("Custom Mix") @Order(3) @Range(1,100)
+attr MaxHeight 	= 100
+@Group("Custom Mix") @Order(4) @Range("All", "Best in zone 0","Best in zone 1","Best in zone 2","Best in zone 3","Best in zone 4","Best in zone 5","Best in zone 6","Best in zone 7","Best in zone 8","Best in zone 9","Best in zone 10","Best in zone 11","Best in zone 12","Viable in zone 0","Viable in zone 1","Viable in zone 2","Viable in zone 3","Viable in zone 4","Viable in zone 5","Viable in zone 6","Viable in zone 7","Viable in zone 8","Viable in zone 9","Viable in zone 10","Viable in zone 11","Viable in zone 12") @Description("USDA Hardiness Zone")
+attr Zone 		= "All"
+@Group("Custom Mix") @Order(5) @Range(All = "All", Africa = "AF", Asia = "AS", Australia = "AU", Europe = "EU", North_America = "NA", South_America = "SA")
+attr Continent 	= "All"
+@Group("Custom Mix") @Order(6) @Range("Large species dominant","Uniform","Small species dominant") @Description("'Large dominant' results approx in same amount of plants per species i.e. a plant species covers the surface relative to its size")
+attr Mixture 	= "Large species dominant"
+
+# Options
+@Group("Options",5) @Order(1) @Description("To avoid large polycounts caused by small-sized plants...")
+attr MaxCountPerSpecies	= 100	
+
+
+
+######################################################
+# Example Mixes
+#
+# List of pairs where the first item is the common
+# name and the second is the percentage of the area
+# which the plant should cover.
+#
+# Typically, setup the mixes so that the coverage sums
+# up to 100%. This way, the global density gives always
+# similar density results regardless of the mix.
+#
+
+const MixTropical 		= "Coconut Palm;20;Date Palm;5;Palm Lily;5;Mexican Palmetto;5;California Palm;10;Ruffle Palm;5;Banana Tree;10;Bamboo;20;Cabbage Palm Fern;20;"
+const MixRandomForest 	= "American Chestnut;5;Red Hickory;5;Southern Magnolia;5;Sugar Maple;5;Northern Red Oak;5;White Oak;5;Scots Pine;10;Douglas Fir;5;Lodgepole Pine;5;California Redwood;15;Giant Sequoia;15;American Sycamore;10;Sassafras;5;California Walnut;5;"
+const MixRandomShrub 	= "Bamboo;10;Cabbage Palm Fern;10;Mediterranean Buckthorn;5;Rhododendron Azaleas;5;Parlour Palm;10;Lacy Tree Philodendron;10;Snake Plant;5;Amazon Sword Plant;5;Witch Hazel;10;Flannelbush;15;Spanish Broom;15;"
+
+const MixZone06NATress	= "Sugar Maple;12.7;California Incense Cedar;2.3;Red Hickory;9.9;American Chestnut;2.3;Western Juniper;14.8;American Sycamore;4.5;Northern Red Oak;13.1;Basswood;5.7;Field Elm;7.4;Lawson Cypress;5.3;Honey Locust;8.800000000000001;Yellow Poplar;10.3;Black Tupelo;2.7;"
+const MixZone07Trees    = "Flowering Dogwood;2.7;California Walnut;38.6;Sweetgum;3.8;Common Whitebeam;16.9;Baldcypress;34.5;Common Holly;3.5;"
+const MixZone08Trees	= "Red Alder;2.6;Southern Magnolia;17.3;Giant Chinquapin;37.5;Loblolly Bay;6.3;Princess Tree;17.3;Athel Tamarisk;12.4;Japanese Nutmeg;2.4;Japanese Hemlock;4.2;"
+const MixZone10Trees    = "Orange Tree;2;Umbrella Acacia;5.9;Australian Pine;3.4;Coconut Palm;8.199999999999999;Blue Gum Eucalyptus;15.8;Date Palm;13.5;Mexican Palmetto;4;California Bay;27.5;California Palm;3.3;Paper Bark Tree;5.7;Avocado;5.9;American Pepper;5;"
+
+_getMix =
+	case Mix == "Tropical"			: MixTropical
+	case Mix == "Random Forest"		: MixRandomForest
+	case Mix == "Random Shrub"		: MixRandomShrub
+	case Mix == "Zone 6 Trees"		: MixZone06NATress
+	case Mix == "Zone 7 Trees"		: MixZone07Trees
+	case Mix == "Zone 8 Trees"		: MixZone08Trees
+	case Mix == "Zone 10 Trees"		: MixZone10Trees
+	else							: ""
+
+# helpers
+_getNPlants(coverage,plantRadius) 	= _checkMaxCount(Density * geometry.area * coverage / _circleArea(plantRadius))
+_checkMaxCount(c)					= case c>MaxCountPerSpecies: MaxCountPerSpecies else: rint(c)
+_circleArea(r)						= r*r*3.14159265359
+
+
+
+######################################################
+# Filter functions (slow)
+#
+
+const _idxAll 	= _genIdxList(Plant.nPlants)
+_genIdxList(n) 	= case n>0: _genIdxList(n-1)+(n-1)+";" else: ""		# generates a list with index numbers "0;1;2;3;..."
+
+@Hidden
+attr _idxFiltered = ""
+
+filterGenerics(list) =
+	case list=="": ""
+	case count(Plant._commonName(_fF(list)),"Generic") == 0: 
+		_fS(list) + ";" + filterGenerics(_rm1(list))
+	else: filterGenerics(_rm1(list))
+
+filterKeyword(list) =
+	case list=="": "" 
+	case count(Plant._commonName(_fF(list)),Keyword) > 0: 
+		_fS(list) + ";" + filterKeyword(_rm1(list))
+	else: filterKeyword(_rm1(list))
+
+filterHeights(list) =
+	case list=="": ""
+	case MinHeight <= Plant._heightMin(_fF(list)) && Plant._heightMax(_fF(list)) <= MaxHeight: 
+		_fS(list) + ";" + filterHeights(_rm1(list))
+	else: filterHeights(_rm1(list))
+
+filterZones(list,viable,zone) =
+	case list=="": ""
+	case viable && Plant._zoneMin(_fF(list)) <= zone && zone <= Plant._zoneMax(_fF(list)): 	# within range i.e. plant is viable
+		_fS(list) + ";" + filterZones(_rm1(list),viable,zone)
+	case zone == rint((Plant._zoneMin(_fF(list)) + Plant._zoneMax(_fF(list)))/2): 			# take only the plants which are best suited for the given zone
+		_fS(list) + ";" + filterZones(_rm1(list),viable,zone)
+	else: filterZones(_rm1(list),viable,zone)
+
+filterContinent(list) =
+	case list=="": ""
+	case count(Plant._regions(_fF(list)),Continent) > 0: 
+		_fS(list) + ";" + filterContinent(_rm1(list))
+	else: filterContinent(_rm1(list))
+
+# checks if filtering is needed
+_filterKeyword		= Keyword != ""
+_filterHeight		= MinHeight > 0 || MaxHeight < 100
+_filterZones		= Zone != "All"
+_filterContinent	= Continent != "All"
+
+# helpers for zones
+_zone	= float(getSuffix(Zone," "))
+_viable	= getPrefix(Zone," ") == "Viable"
+
+# general helpers
+_fS(list)	= listFirst(list)					# get first item of list
+_fF(list)	= float(listFirst(list))			# get first item of list and convert it to float
+_rm1(list)	= listRange(list,1,Plant.nPlants)	# remove first item from list
+_rm2(list)	= listRange(list,2,100)				# remove first TWO items from list
+
+
+
+######################################################
+# Custom Mix Compilation functions
+#
+
+@Hidden
+attr _sum 		= 0
+@Hidden
+attr _mix 		= ""
+
+# scanning the filtered list
+_getSum(list) 	= case list==""	: 0
+				  else			: _getSize(_fF(list)) + _getSum(_rm1(list))
+_getSize(idx)	=
+	case Mixture=="Large species dominant"	: _circleArea(Plant._radiusAvg(idx)) 	# results in same amount of plants per type in ecosystem
+	case Mixture=="Small species dominant"	: 1/Plant._radiusAvg(idx)				# larger plants get smaller weights for the total coverage
+	else									: 1										# results in same amount of covered area per type
+
+# compiling the final plant-mix including coverage percentages
+_getMix(list) 	=
+	case list==""							: ""
+	case _percent(_getSize(_fF(list))) > 0	: Plant._commonName(_fF(list)) + ";" + _percent(_getSize(_fF(list))) + ";" + _getMix(_rm1(list))
+	else									: _getMix(_rm1(list))
+_percent(w)		= rint(1000 / _sum * w) / 10
+
+
+
+
+
+########################################################################
+########################################################################
+###
+###   RULES
+###
+###
+
+
+
+######################################################
+# Plant on Surface Distributor 
+#
+
+@StartRule
+Generate -->
+	case Mix == "Custom":
+		alignScopeToAxes(y)
+		comp(f){ vertical: NIL | bottom: NIL | all= CustomMix }
+	else:
+		alignScopeToAxes(y)
+		comp(f){ vertical: NIL | bottom: NIL | all= Generate(_getMix) }
+
+
+
+######################################################
+# Custom Mix Creation
+#
+
+CustomMix -->
+	# filter the index list
+	set(_idxFiltered, filterGenerics(_idxAll) )
+	set(_idxFiltered, case _filterKeyword	: filterKeyword(_idxFiltered)				else: _idxFiltered )
+	set(_idxFiltered, case _filterHeight	: filterHeights(_idxFiltered)				else: _idxFiltered )
+	set(_idxFiltered, case _filterZones		: filterZones(_idxFiltered,_viable,_zone)	else: _idxFiltered )
+	set(_idxFiltered, case _filterContinent	: filterContinent(_idxFiltered) 			else: _idxFiltered )
+	# compile the mix
+	set(_sum, _getSum(_idxFiltered))
+	set(_mix, _getMix(_idxFiltered))
+	Generate(_mix)
+	print("Custom Mix consists of " + rint(listSize(_mix)/2) + " plants:")
+	print(_mix)
+
+
+
+######################################################
+# Plant Distribution
+#
+
+Generate(mix) -->
+	case mix != "":
+		DistributePlant(listFirst(mix),float(listItem(mix,1))/100)
+		Generate(_rm2(mix))		# remove first two items of list and call again i.e. recursive call ..
+	else:						# .. until list is empty
+		NIL
+
+DistributePlant(plant,coverage) -->
+	DistributePlant(plant,coverage,Plant.getStandardRadius(plant))
+	
+DistributePlant(plant,coverage,plantRadius) -->
+	case Distribution == "Border":
+		offset(-Plant.getStandardTrunkRadius(plant),inside)
+		offset(-1.5*plantRadius,border)
+		ScatterUniform(plant,coverage,plantRadius)
+	case Distribution == "Along Street":
+		offset(-Plant.getStandardTrunkRadius(plant),inside)
+		setback(plantRadius){ street.front: ScatterUniform(plant,coverage*2,plantRadius) }
+	case Distribution == "South":
+		comp(f){ all: 
+			setback(sqrt(geometry.area)/4){ world.south: ScatterUniform(plant,coverage,plantRadius) 
+			    						  | world.north: ScatterUniform(plant,coverage/9,plantRadius) 
+										  | remainder:   ScatterUniform(plant,coverage/3,plantRadius) } }
+	case Distribution == "Centered":
+		offset(-2*plantRadius,inside)
+		ScatterGaussian(plant,coverage*0.75,plantRadius)
+	case Distribution == "Uniform without crown overlaps":
+		offset(-plantRadius,inside)
+		ScatterUniform(plant,coverage,plantRadius)
+	case Distribution == "Uniform without trunk verlaps":
+		offset(-Plant.getStandardTrunkRadius(plant),inside)
+		ScatterUniform(plant,coverage,plantRadius)
+	else:
+		ScatterUniform(plant,coverage,plantRadius)
+	  
+ScatterUniform(plant,coverage,plantRadius) -->
+	scatter(surface, _getNPlants(coverage,plantRadius), uniform){ Plant.Generate(plant) }
+	//report("nPlants."+plant,_getNPlants(coverage,plantRadius))
+	NIL
+
+ScatterGaussian(plant,coverage,plantRadius) -->
+	scatter(surface, _getNPlants(coverage,plantRadius), gaussian){ Plant.Generate(plant) }
+	//report("nPlants."+plant,_getNPlants(coverage,plantRadius))
+	NIL
+
+
+	
+	
+	
+	
+	
+	
+	
+	

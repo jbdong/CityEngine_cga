@@ -1,0 +1,15 @@
+/**
+ * File:    Lights.cga
+ * Created: 26 Apr 2012 21:03:53 GMT
+ * Author:  craig
+ */
+
+version "2014.0"
+
+attr HEIGHT = 30
+
+lampAsset = "assets/lamps/lightPole360_2.obj"
+
+Lamp --> alignScopeToAxes(y)
+		 s(0,HEIGHT*.3048,0) 			
+		 i(lampAsset) 

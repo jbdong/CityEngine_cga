@@ -1,0 +1,520 @@
+/**
+ * File:    parthenon.cga
+ * Created: 18 Aug 2008 14:10:07 GMT
+ * Updated: 20 Oct 2011
+ * Author:  Pascal Mueller
+ */
+ 
+version "2011.1" 
+
+
+
+# ---------------------- model parameters ----------------------
+
+@Group("Model Options",0) @Order(1) @Range("High","Low")
+attr Level_of_Detail		= "Low"
+const HighLOD 				= Level_of_Detail == "High"
+@Group("Model Options",0) @Order(2)
+attr Generate_Roof			= true
+
+@Group("Colors",7) @Order(1)
+attr Temple_Color			= "#EDE6CD"
+
+
+
+# ---------------------- column parameters ----------------------
+
+@Group("Columns",1) @Order(1) @Range(0.5,5) @Description("Most important parameter of a classical temple. Size from [Perseus Building Catalog]")
+attr Diameter 				= 1.92      			
+@Group("Columns",1) @Order(3) @Range(2.5,25) @Description("10.43 for the Parthenon, ~5.5*diameter for Greek-Doric, from [Perseus Building Catalog]")
+attr Column_Height 			= Diameter /1.92*10.43	
+@Group("Columns",1) @Order(2) @Range(1,10) @Description("4.29 for the Parthenon, ~2.5*diameter for Greek-Doric, from [Perseus Building Catalog]")
+attr Spacing 				= Diameter /1.92*4.29
+
+const capitalHeight 		= Diameter *0.45  		# diameter*0.5 in [Palladio] or diameter*0.4 TO diameter*0.5 in [Normand]
+const capitalWidth 			= Diameter *1.1   		# diameter*1.1 (athens) to diameter*1.2 (paestum) after [Normand]
+const echinusPartsHeight 	= 1	        			# ratio from [Normand] and [Palladio]
+const abacusPartsHeight 	= 1.15      			# ratio from [Normand] and [Palladio]
+
+@Group("Colors",7) @Order(2)
+attr Column_Color			= "#F4F1D4"
+
+peristyliumHeight 			= Column_Height + Entablature_Height
+
+firstColumn(side) 			= split.index == 0 			   && comp.index == 0 			 && comp.sel == side
+lastColumn(side)			= split.index == split.total-1 && comp.index == comp.total-1 && comp.sel == side
+boundaryColumn				= firstColumn("left") || lastColumn("right") || firstColumn("front") || lastColumn("front")
+
+
+# ---------------------- entablature parameters ----------------------
+
+@Group("Entablature",2) @Order(1) @Range(1,15) @Description("3.30 for the Parthenon, from [Perseus Building Catalog]")
+attr Entablature_Height 	= Column_Height /10.43*3.30 
+@Group("Entablature",2) @Order(2) @Range(0.5,10) @Description("1.3 for the Parthenon, from [Normand] and [Perseus Building Catalog]")
+attr Frieze_Height 			= Entablature_Height /3.30*1.3
+
+const architraveHeight 		= 0.42* Entablature_Height    # from [Normand] and [Perseus Building Catalog]
+const architraveD 			= 0.85* Diameter   	# 1*diameter TO 0.7*diameter (later paestum) from [Normand]
+const corniceHeight			= Entablature_Height - Frieze_Height -architraveHeight
+const geisonProjection 		= Diameter *0.5  		# cornice's geison and sima are projecting half a diameter together (from [Normand] and [Palladio])
+
+const triglyphWidth 		= 0.44* Diameter    	# 0.5*diameter TO 0.4*diameter from [Normand] and [Palladio]
+const triglyphD 			= triglyphWidth /9         	# approx. one tenth of its width since the 'flutes' are 45 degrees (from [Normand] and [Pascal])
+const taeniaH 				= architraveHeight *0.1       	# taenia is 1/10th of architrave height (after [Normand]) 
+const taeniaD 				= Diameter /30       	# its projection depends on triglyph-width i.e. the diameter (after [Pascal] - but this is logic :)
+ 
+const architraveC			= Temple_Color
+const corniceC				= architraveC
+@Group("Colors",7) @Order(3)
+attr Metopes_Color			= "#DB8C6C"
+@Group("Colors",7) @Order(4)
+attr Triglyph_Color			= "#576484"
+
+# ---------------------- cella parameters ----------------------
+
+@Group("Cella",3) @Order(1) @Range(2,10) @Description("Parthenon's cella width is 21.7 and length 58.8, from [Tzonis] and [Perseus Building Catalog]")
+attr Cella_Setback 			= Spacing/4.29*4.97			
+@Group("Porches",4) @Order(1) @Range("Prostyle","In Antis") @Description("most greek doric temples are in antis (enclosed at its sides) and not prostyle (after [Tzonis])")
+attr Type 					= "Prostyle"   
+@Group("Porches",4) @Order(2) @Range(0,10) @Description("5.5 for the Parthenon, >columnSpacing, from [Tzonis] and [Perseus Building Catalog]")
+attr Portico_Length 		= Spacing /4.29*5.5 	
+@Group("Porches",4) @Order(3) @Range(0,10) @Description("5.4 for the Parthenon, >columnSpacing, from [Tzonis] and [Perseus Building Catalog]")
+attr Posticum_Length 		= Spacing /4.29*5.4
+
+const wallThickness 		= 0.9*architraveD       	# smaller than architraveD, from [Tzonis]
+const prostyle				= Type == "Prostyle"
+
+@Group("Cella",3) @Order(4)
+attr Posticum_Door			= true
+@Group("Cella",3) @Order(2) @Range(2,10) 
+attr Door_Height				= 7.2
+@Group("Cella",3) @Order(3)	@Range(2,10) 		
+attr Door_Width				= 3.5
+const doorD					= 0.4
+const doorWindowH			= Door_Height*0.15
+const doorFrameW			= 0.4
+const doorFrameH			= 0.6
+const entranceFrameW		= doorFrameW+0.1
+const entranceH				= Door_Height+doorWindowH+doorFrameH+entranceFrameW+0.5*podiumRiserHeight
+const entranceW				= Door_Width+2*doorFrameW+2*entranceFrameW
+const corniceProjection 	= Diameter *0.1
+
+prostyleLength 				= Diameter *0.6
+
+
+# ---------------------- podium parameters ----------------------
+
+@Group("Podium",5) @Order(2) @Range(0,11) @Description("usually 3-stepped crepidoma")
+attr No_of_Steps 			= 3
+
+const podiumTreadDepth 		= 0.72        				# from [Normand] and [Perseus Building Catalog]
+const podiumRiserHeight 	= 0.41        				# from [Normand] and [Perseus Building Catalog]
+
+@Group("Colors",7) @Order(5)
+attr Podium_Color			= "#CDC6AD"
+
+podiumH						= No_of_Steps * podiumRiserHeight
+
+
+# ---------------------- roof parameters ----------------------
+
+@Group("Roof",6) @Order(1) @Range("Gable","Hip")
+attr Roof_Type				= "Gable"
+@Group("Roof",6) @Order(2) @Range(5,40)
+attr Angle 					= 15
+
+const roofBrickW 			= Spacing *0.25
+const roofBrickH 			= Spacing *0.35
+
+const pedimentWidth 		= Diameter
+const simaLength 			= pedimentWidth*1.1			# larger than pedimentWidth due to front overhang in sima asset
+const simaHeight 			= pedimentWidth*0.27
+const simaWidth 			= Spacing *0.5 
+
+@Group("Colors",7) @Order(6)
+attr Roof_Color				= "#886644"
+
+
+# ====================== assets ======================
+
+const doorAsset 			= "assets/temples/door_parthenon.obj" 
+const doorCorniceAsset 		= "assets/temples/door-cornice_parthenon.obj"
+const topdoorAsset 			= "assets/temples/topdoor-element_parthenon.obj"
+const shaftAsset	 		= case HighLOD: "assets/temples/shaft_parthenon.obj" else: "assets/temples/shaft_parthenon_lowLOD.obj"
+const echinusAsset 			= "assets/temples/echinus_parthenon.obj"
+const abacusAsset 			= case HighLOD: "assets/temples/abacus_parthenon.obj" else: "builtin:cube"
+const architraveAsset 		= case HighLOD: "assets/temples/architrave_parthenon.obj" else: "builtin:cube"
+const friezeAsset 			= "assets/temples/frieze_parthenon.obj"
+const geisonAsset 			= "assets/temples/geison_parthenon.obj"
+const triglyphAsset 		= "assets/temples/triglyph_parthenon.obj"
+const guttaeAsset 			= "assets/temples/guttae_parthenon.obj"
+const mutuleAsset 			= "assets/temples/mutule.obj"
+const antefixAsset 			= "assets/temples/antefix.obj"
+const roofBrickBottomAsset	= "assets/temples/roofbrick_bottom.obj"
+const roofBrickRound 		= "assets/temples/roofbrick_round.obj"
+const simaAsset 			= "assets/temples/roof_sima.obj"
+
+
+
+##########################################################################################
+##########################################################################################
+##
+##   START 
+##
+#####
+#####
+
+# Note: the startshape "Temple" does not correspond to the 
+# footprint, but to the Stylobate (=the platform on top of the
+# podium). The Stylobate is the temple's main dimension 
+# measurement in archaeolgical literature. 
+# For the Parthenon the Stylobate width is 30.88 and length 
+# is 69.50 [Perseus Building Catalog]. The dimensions can be
+# modified in the inspector by editing the corresponding vertex 
+# coordinates of the start shape.
+
+Temple --> 
+    Podium t(0,podiumH,0) color(Temple_Color) 
+    [ offset(- Diameter /2,inside) extrude(peristyliumHeight) Peristylium ] 
+	[ offset(-Cella_Setback,inside) Cella ]
+	t(0,peristyliumHeight,0)
+	offset(- Diameter /2+geisonProjection+architraveD/2,inside) Roof
+
+
+##########################################################################################
+##
+##   PODIUM 
+##
+#####
+
+Podium --> 
+	color(Podium_Color)
+	Steps(No_of_Steps-1) 
+
+Steps(n) --> 
+	case n >= 0 : 
+		[ t(0,podiumRiserHeight,0) Steps(n-1) ]
+		offset(n*podiumTreadDepth, inside) extrude(podiumRiserHeight) Step.
+	else : 
+		NIL
+
+
+##########################################################################################
+##
+##   CELLA 
+##
+#####
+
+# Cella consists of sanctuary (middle part), portico (front part) and posticum (back part)
+Cella --> 
+	case scope.sx > entranceW*2 && scope.sz > Posticum_Length+Portico_Length+2*wallThickness:
+		[ offset(-wallThickness*0.5,inside) extrude(peristyliumHeight) InnerPeristylium ]
+		extrude( Column_Height ) split(z){ Posticum_Length : setPivot(xyz,2) PorchWalls | ~1 : Sanctuary | Portico_Length : PorchWalls }
+	else:
+		NIL
+
+InnerPeristylium -->
+	split(y){ Column_Height : 
+				split(z){ Posticum_Length-Spacing-wallThickness*0.5: setPivot(xyz,2) PorchColonnades 
+						| ~1											: NIL 
+						| Portico_Length-Spacing-wallThickness*0.5 : PorchColonnades }
+			| architraveHeight + Frieze_Height : 
+				comp(f){ side : Entablature } }
+
+# In the prostyle case, the whole front is made of columns and the side walls are shortened
+PorchWalls -->
+	case scope.sz < Spacing :
+		NIL
+	case prostyle : 
+		split(z){ prostyleLength : set(trim.vertical,false) comp(f){ left: Wall | right: Wall } | ~1 : NIL }
+	else:
+		set(trim.vertical,false) comp(f){ left: Wall | right: Wall }
+
+# Sanctuary has walls on the side, and entrance on front (and sometimes back)
+Sanctuary --> 
+	case Posticum_Door : 
+		comp(f){ front : EntranceWall | back : EntranceWall | side : s('1.1,'1,'1) center(x) Wall } 
+	else :
+		comp(f){ front : EntranceWall | side : s('1.1,'1,'1) center(x) Wall  }
+
+# Walls on the side and entrance in the middle
+EntranceWall --> 
+	case scope.sx > entranceW*2:
+		s('1.1,'1,'1) center(x)
+		split(x){ ~1			: Wall 
+				| entranceW 	: split(y){ entranceH : Entrance | ~1 : Wall } 
+				| ~1         	: Wall }
+	else:
+		s('1.1,'1,'1) center(x)
+		Wall
+
+Entrance --> 
+	t(0,0,- podiumTreadDepth *0.2) 
+	split(y){ podiumRiserHeight *0.5    : t(0,0,podiumTreadDepth*0.5) Wall( wallThickness+podiumTreadDepth) 
+			| ~1			  			: split(x){ entranceFrameW : Wall | ~1 : DoorMain | entranceFrameW : Wall } 
+			| entranceFrameW 			: Wall } 
+
+DoorMain -->  
+	color("#664422")
+	t(0,0,-wallThickness*0.15) 
+	split(y){ ~1          : split(x){ doorFrameW : Wall(wallThickness*0.8) | ~1 : Door | doorFrameW : Wall(wallThickness*0.8) } 
+			| doorFrameH  : Wall(wallThickness*0.8) DoorCornice 
+			| doorWindowH : DoorWindows }
+
+Door --> 
+	s('1,'1,doorD) t(0,0,'-1) i(doorAsset)
+
+DoorCornice -->	
+	s('1,'1,corniceProjection) i(doorCorniceAsset)
+
+DoorWindows -->	
+	s('1,'1,doorD*0.3) t(0,0,'-1) split(x){ ~scope.sy : i(topdoorAsset) DoorWindow. }*
+
+Wall --> 
+	Wall(wallThickness) 	# Overloaded: default thickness of wall
+
+Wall(thickness) --> 
+	s('1,'1,thickness) t(0,0,'-1) i("builtin:cube") 
+
+PorchColonnades -->
+	case scope.sz < Spacing || !prostyle:
+		comp(f){ front: Colonnade }
+	else: 
+		comp(f){ right: Colonnade }		# if comp.sel is right, the last column should not be trimmed		 
+		comp(f){ left : Colonnade }     # if comp.sel is left, the first column should not be trimmed
+		comp(f){ back: NIL | left: NIL | right: NIL | side: Colonnade } # if comp.sel is side, the first and last column should be trimmed (cause they are in a "circle")
+		# note: right, left, and side are called each in a separate comp split to guarantee proper comp.indexes afterwards
+
+
+
+
+##########################################################################################
+##
+##   Peristylium 
+##
+#####
+
+# Peristylium consists of Columns and Entablature on top
+Peristylium --> 
+	comp(f){ side : split(y){ Column_Height : Colonnade | ~1 : Entablature } }
+
+
+### Columns ###
+
+# Edge columns have different intercolumn-distance (the famous exception...)
+Colonnade --> 
+	case scope.sx > Spacing *3:
+		split(x){ ~ Spacing + triglyphWidth *0.5-architraveD*0.5 : ColumnTile 
+				| { ~ Spacing : ColumnTile }* 
+				| ~ Spacing + triglyphWidth *0.5-architraveD*0.5 : ColumnTile 
+				| 0.001: ColumnTile } 
+	else:
+		split(x){ { ~ Spacing : ColumnTile }* | 0.001: ColumnTile }
+
+ColumnTile --> 
+	set(trim.vertical,false) 
+	i("builtin:cube") s( Diameter ,'1, Diameter ) t('-0.5,0,'-0.5) 
+	color(Column_Color) Column
+	
+Column --> 												# Note: Greek Doric columns don't have a base
+	case !prostyle && boundaryColumn :             # in case the temple is not prostyle, the first and last column do not have to be generated at all  	                                                                # Note: Greek Doric columns don't have a base
+		NIL
+	case boundaryColumn :                          		# otherwise boundary columns have to be generated completely (and should not be trimmed)
+		split(y){ ~1 : Shaft | capitalHeight : Capital }
+	case split.index < split.total-1: 					# for all other columns the shaft hast to be inserted and the capital has to be trimmed (if needed) ...
+		split(y){ ~1 : Shaft | capitalHeight : set(trim.vertical,true) Capital }
+	else:												# .. but for the last column (per face) the shaft is not needed (because the first shaft asset of the next face can be taken)
+		split(y){ ~1 : NIL   | capitalHeight : set(trim.vertical,true) Capital }												
+
+Shaft --> 
+	i(shaftAsset) Shaft. 
+
+Capital --> 
+	s(capitalWidth,'1,capitalWidth) center(xz) 
+	split(y){ ~echinusPartsHeight: i(echinusAsset) Echinus. 
+			| ~abacusPartsHeight : i(abacusAsset) Abacus. }
+
+
+### Entablature ###
+
+Entablature --> 
+	split(y){ architraveHeight : Architraves | Frieze_Height : Frieze | ~1 : Cornice  } 
+
+Architraves --> 
+	color(architraveC)
+	split(x){ ~ Spacing + triglyphWidth *0.5-architraveD*0.5 : t('-1,0,0) s('2,'1,'1) Architrave 
+			| { ~ Spacing : Architrave }* 
+			| ~ Spacing + triglyphWidth *0.5-architraveD*0.5 : s('2,'1,'1) Architrave }
+
+Architrave --> 
+	t(0,0,-architraveD*0.5)
+	split(y){ ~1		: s('1,'1,architraveD) i(architraveAsset) Architrave. 
+			| taeniaH	: s('1,'1,architraveD+taeniaD*1.5) i(architraveAsset) Taenia. }
+
+Frieze -->	
+	s(scope.sx+architraveD,'1,'1) center(x) Metopes 
+	t(0,0,architraveD/2) Triglyphs
+
+Metopes --> 
+	s('1,'1,architraveD+ triglyphWidth /15) center(z)  
+	i(friezeAsset) color(Metopes_Color) Metopes.
+	
+Triglyphs --> 
+	color( Triglyph_Color )
+	t(0,0,-0.007) 
+	split(x){ triglyphWidth : s('1,'1,triglyphD) i("builtin:cube") TriglyphWithGuttae 
+			| { ~ Spacing : split(x){~1:NIL 
+								  	      | triglyphWidth : s('1,'1,triglyphD) i("builtin:cube") TriglyphWithGuttae 
+								          | ~1:NIL 
+								          | triglyphWidth : s('1,'1,triglyphD) i("builtin:cube") TriglyphWithGuttae } }* }
+
+TriglyphWithGuttae -->             										# handling exceptions (in this case the TriglyphWithRegulaGuttae-box got trimmed, e.g. smaller angle etc 
+	case scope.sx < triglyphWidth*0.6:   										# in this case force half-size
+		case split.index == 0: s(triglyphWidth,'1,'1) t('-0.5,0,0) Triglyph Guttae 
+		else                 : t('1,0,0) s(triglyphWidth,'1,'1) t('-0.5,0,0) Triglyph Guttae 
+	case scope.sx < triglyphWidth*0.99:  										# otherwise force full-size
+		case split.index == 0: s(triglyphWidth,'1,'1) Triglyph Guttae
+		else                 : t('1,0,0) s(triglyphWidth,'1,'1) t('-1,0,0) Triglyph Guttae
+	else:
+		Triglyph Guttae
+			
+Triglyph --> 
+	i(triglyphAsset) Triglyph.
+
+Guttae --> 
+	t(0,-2*taeniaH,-0.007) s('1,taeniaH,taeniaD) i(guttaeAsset) Guttae.
+
+Cornice -->  
+	color(corniceC)
+	s(scope.sx+architraveD+ Spacing *0.25- triglyphWidth ,'1,'1) center(x)  
+	Geisons
+
+Geisons --> 		
+	set(trim.vertical,false) 
+	split(x){   ~ Spacing /4 : Mutule t('-4,0,0) s('5,'1,'1) Geison    						# make the first geison longer so that it gets trimmed
+			| { ~ Spacing   : split(x){ '0.25: Mutule Geison }* }* 
+			|   ~ Spacing   : split(x){ {'0.25: Mutule Geison }* | '0.25: Mutule s('5,'1,'1) Geison} }      # make the last geison longer so that it gets trimmed
+
+Geison -->	
+	set(trim.vertical,true) 
+	t(0,0,geisonProjection+architraveD/2- Diameter ) s('1,'1, Diameter ) 
+	i(geisonAsset) 
+
+Mutule --> 
+	case HighLOD:
+		set(trim.vertical,true) 
+		color( Triglyph_Color )
+		t(0,'0.05,architraveD/2+geisonProjection*0.2) 
+		s('triglyphWidth/( Spacing /4),geisonProjection*0.25,geisonProjection*0.65) center(x)
+		i(mutuleAsset) Mutule.
+	else:
+		set(trim.vertical,true) 
+		color( Triglyph_Color )
+		t(0,'0.2,architraveD/2+geisonProjection*0.2) 
+		s('triglyphWidth/( Spacing /4),geisonProjection*0.25,geisonProjection*0.65) center(x)
+		r(scopeCenter,8,0,0)
+		i("builtin:cube") Mutule.
+
+
+
+
+##########################################################################################
+##
+##   Roof 
+##
+#####
+
+Roof --> 
+	case Roof_Type == "Gable" :
+		roofGable( Angle ,0,-geisonProjection-triglyphWidth/2)
+		comp(f){ vertical : Pediment | top : RoofPlane }
+		comp(e){ ridge: Ridge(0) | hip: Ridge(roofBrickW*0.4) | valley: Ridge(roofBrickW*0.4) }
+	else:
+		roofHip( Angle )
+		comp(f){ top : RoofPlane }
+		comp(e){ ridge: Ridge(0) | hip: Ridge(roofBrickW*0.4) | valley: Ridge(roofBrickW*0.4) }
+
+RoofPlane -->
+	case Generate_Roof :
+		RoofBricks 
+		set(trim.vertical,false)
+		split(y){ roofBrickH*0.02: Antefixes }
+	else:
+		NIL
+
+
+# detailed roof bricks
+
+RoofBricks -->
+	case HighLOD :
+		color(Roof_Color) set(trim.horizontal,true)
+		t(0,0.15,-0.05)
+		split(y,noAdjust){ ~roofBrickH : BottomBrickRow }*
+		split(y,noAdjust){ ~roofBrickH*0.8 : TopBrickRow 
+						 | { ~roofBrickH   : TopBrickRow }*
+						 | ~roofBrickH*1.2 : TopBrickRow }
+	else :
+		color(Roof_Color) 
+		
+BottomBrickRow -->	 
+	s('1,'1.02,'1) r(scopeCenter,-3,0,0) 
+	split(x){ ~roofBrickW : i(roofBrickBottomAsset) BottomBrick. }*
+
+TopBrickRow -->
+	t(0,0.05,roofBrickW*0.1) 
+	split(x){ ~roofBrickW*0.8   : NIL 
+			| { ~roofBrickW*0.4 : TopBrick
+			|   ~roofBrickW*0.6 : NIL }* 
+			| ~roofBrickW*0.4   : TopBrick
+			| ~roofBrickW*0.8   : NIL }
+
+TopBrick -->
+	r(scopeCenter,-3,0,0) s('1,scope.sy+roofBrickH*0.15,scope.sx*0.45)
+	i(roofBrickRound) TopBrick.
+
+Ridge(offsetX) -->
+	case HighLOD && Generate_Roof:
+		color(Roof_Color) 
+		t(offsetX,0,roofBrickW*0.1)
+		s(scope.sx-offsetX,roofBrickW*0.5,roofBrickW*0.2) center(y) i("builtin:cube") 
+		rotateScope(0,0,-90)
+		split(y){ ~roofBrickH : TopBrick }*
+	else:
+		NIL
+
+# antefixes (the ornamentation on the roof edge)
+
+Antefixes -->
+	case scope.sx < Spacing *3:
+		split(x){ ~ Spacing : split(x){~1: Antefixa | ~1: Antefixa } }* 
+		t('1,0,0) s(roofBrickW*0.4,'1,'1) Antefixa
+	case Roof_Type != "Gable" :
+		split(x){   geisonProjection+triglyphWidth/2: NIL
+				| { ~ Spacing                  : split(x){~1: Antefixa | ~1: Antefixa } }* 
+				|   geisonProjection+triglyphWidth/2: Antefixa }
+	else:
+		split(x){   ~ Spacing : split(x){~1: NIL      | ~1: Antefixa }
+				| { ~ Spacing : split(x){~1: Antefixa | ~1: Antefixa } }* }
+
+Antefixa -->
+	s(roofBrickW*0.4,roofBrickH*0.2,'1) t('-0.5,0,0) i(antefixAsset) Antefixa.
+
+
+# pediment with simas
+
+Pediment -->
+	t(0,0,-pedimentWidth) s('0.995,'1,'1) center(x)		# make it a little bit smaller than entablature below (looks more realistic)
+	extrude(pedimentWidth-geisonProjection) Pediment.	# generates the wall (the extrusion creates 5 faces out of the pediment triangle)
+	alignScopeToAxes(y)
+	comp(f){ top = comp(f){ 0: Simas(0) RankingGeisons(1) | 1: Simas(1) RankingGeisons(0) } } 											
+
+Simas(side) -->
+	t('-0.1*side,0,0) s('1.1,simaLength,simaHeight) i("builtin:cube") 	# scaling/translation in x due to triming on the top
+	split(x){ ~simaWidth : i(simaAsset) Sima. }*
+
+RankingGeisons(side) -->
+	t('0.03*side,0,0) s('0.97,simaLength,simaHeight)
+	rotateScope(-90,180,0)
+ 	s('1,corniceHeight*0.9,1) t(0,'-1,0) i("builtin:cube")
+ 	split(x){ ~ Spacing /4.3: Geison }*
+ 	

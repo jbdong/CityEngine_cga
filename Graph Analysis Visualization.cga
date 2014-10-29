@@ -1,0 +1,59 @@
+/**
+ * File:    Graph Analysis Visualization.cga
+ */
+ 
+# ----------------------------------------
+# Attributes
+# ----------------------------------------
+
+@Group ("Display Options",0) @Range("Local Integration","Global Integration","Inbetween Centrality")
+attr Show = "Global Integration"
+
+@Group("Integration Values (Mapped)",1) @Range(0,1)
+attr integrationLocal = -1
+
+@Group("Integration Values (Mapped)",1) @Range(0,1)
+attr integrationGlobal = -1
+
+@Group("Integration Values (Mapped)",1) @Range(0,1)
+attr inbetweenCentrality = -1
+
+# ----------------------------------------
+# Constants
+# ----------------------------------------
+
+const integration = 
+	case Show == "Local Integration" : integrationLocal
+	case Show == "Global Integration": integrationGlobal
+	else                             : inbetweenCentrality
+
+const integrationColor =
+	case integration < 0	: "#ffffff"
+	case integration < 0.1	: "#0000ff" # hue 240 (blue)
+	case integration < 0.2	: "#006eff" # hue 214
+	case integration < 0.3	: "#00ddff" # hue 188
+	case integration < 0.4	: "#00ffb2" # hue 162
+	case integration < 0.5	: "#00ff40" # hue 135
+	case integration < 0.6	: "#33ff00" # hue 108
+	case integration < 0.7	: "#a6ff00" # hue 81
+	case integration < 0.8	: "#ffe500" # hue 54
+	case integration < 0.9	: "#ff7300" # hue 27
+	else 					: "#ff0000" # hue 0 (red)
+
+# ----------------------------------------
+# Rules
+# ----------------------------------------
+
+@StartRule
+Street 				--> color(integrationColor)
+Joint				--> color(integrationColor)
+Sidewalk			--> color(integrationColor)
+Crossing			--> color(integrationColor)
+Junction			--> color(integrationColor)
+JunctionEntry		--> color(integrationColor)
+Freeway				--> color(integrationColor)
+FreewayEntry		--> color(integrationColor)
+Roundabout			--> color(integrationColor)
+RoundaboutEntry		--> color(integrationColor)
+RoundaboutIsland	--> color(integrationColor)
+	

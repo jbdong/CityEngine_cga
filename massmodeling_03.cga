@@ -1,0 +1,58 @@
+/**
+ * File:    massmodeling_03.cga
+ * Created: 4 Dec 2010 12:34:32 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+
+@Group("Building",2) @Range(20,200)
+attr height = 
+	case geometry.area > 1000: rand(50,200) 
+	else: rand(20,50)
+		
+@StartRule
+Lot --> Parcel
+
+@StartRule
+LotInner --> OpenSpace
+
+######################
+## Setback Parcels
+######################
+
+@Group("Footprint",1)  @Range(3,6)
+attr distanceStreet = 
+	20% : 0
+	else : rand(3,6)
+
+@Group("Footprint")  @Range(4,8)
+attr distanceBuildings = 
+	50% : 0
+	else : rand(4,8)
+
+
+
+@StartRule
+Parcel --> 
+	setback(distanceStreet)
+		{ streetSide: OpenSpace 
+		| remainder: SubParcel }
+
+
+SubParcel -->
+	setback(distanceBuildings/2)
+		{ noStreetSide: OpenSpace 
+		| remainder: Footprint }		
+
+Footprint --> extrude(height)
+
+
+#####################
+
+
+@StartRule
+OpenSpace -->
+	color("#77ff77")
+		

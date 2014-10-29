@@ -1,0 +1,69 @@
+/**
+ * File:    massmodeling_01.cga
+ * Created: 6 Nov 2008 18:41:40 GMT
+ * Author:  andi
+ */
+
+version "2011.1"
+
+@Group("Building",2) @Range(20,200)
+attr height = 
+	case geometry.area < 1000: rand(20,50)
+	else: rand(50,150)
+
+@StartRule	
+Lot --> LUShape
+
+
+######################
+## LU Shapes
+######################
+
+@Group("LU-Shape",3) @Range(10,20)
+attr wingWidth = rand(10,20)
+
+@Group("Building") @Range("auto","lLeft","lRight","uShape", "basicExtrude")
+attr shape = "auto"
+
+@StartRule		
+LUShape -->
+  case shape =="lLeft" : LShape("l")
+  case shape =="lRight" : LShape("r")
+  case shape =="uShape" : UShape
+  case shape =="basicExtrude" : offset(-5, inside) BasicFootprint
+  
+  else :
+	case geometry.isRectangular(10):
+		case scope.sx > scope.sz : 
+			60%  :UShape
+			else : 50% : LShape("l") else : LShape("r")
+		else: 50% : LShape("l") else : LShape("r")
+	else: offset(-5, inside) BasicFootprint
+
+
+LShape(orient) --> 
+	case orient =="l": shapeL(wingWidth,wingWidth) {shape : LFootprint}  // left L
+	else: rotateScope(0,-90,0) shapeL(wingWidth,wingWidth) {shape : LFootprint}	// right L
+
+LFootprint --> 
+	60% : extrude(height) Mass
+	else : convexify comp(f){1 : extrude(height) Mass | all : extrude(height*0.7) Mass}
+
+
+UShape -->
+	80% : rotateScope(0,180,0) shapeU(scope.sx*rand(0.3,0.5),scope.sz*rand(0.3,0.4),scope.sz*rand(0.3,0.4)) { shape : UFootprint }	
+	else:  shapeU(scope.sx*rand(0.3,0.5),scope.sz*rand(0.3,0.4),scope.sz*rand(0.3,0.4)) { shape : UFootprint }	
+
+UFootprint --> extrude(height) Mass
+
+
+BasicFootprint --> extrude(height) Mass
+
+
+
+	
+LotInner --> OpenSpace
+
+
+
+	

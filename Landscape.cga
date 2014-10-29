@@ -1,0 +1,41 @@
+/**
+ * File:    Landscape.cga
+ * Created: 18 Apr 2012 22:43:15 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+//Landscaping Textures
+attr grass_tex = "exteriorTextures/grass.jpg"
+attr mulch_tex = "exteriorTextures/mulch.jpg"
+attr gravel_tex = "exteriorTextures/pebbles2.jpg"
+attr rock_tex = "exteriorTextures/gravel.jpg"
+attr ivy_tex = "exteriorTextures/hedge.jpg"
+attr planter_tex = "exteriorTextures/hedge2.jpg"
+
+//Landscaping Colors
+attr errorColor 	= "#FF0000"
+
+attr SURFTYPE 		= "unknown"
+
+@StartRule
+Landscapes -->
+	case SURFTYPE == "Grass" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(grass_tex) 
+	case SURFTYPE == "Mulch" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(mulch_tex) 
+	case SURFTYPE == "Gravel" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(gravel_tex)
+	case SURFTYPE == "Rock" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(rock_tex) 
+	case SURFTYPE == "Ivy / Groundcover" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(ivy_tex) 
+	case SURFTYPE == "Planter" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(planter_tex)
+	else :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(planter_tex)
+		
+//Landscape(c) -->
+//	translate(rel, world, 0, 3, 0)
+//	color(c)

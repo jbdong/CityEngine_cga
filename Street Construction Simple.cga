@@ -1,0 +1,118 @@
+/**
+ * File:    Street Construction Simple.cga
+ * Created: 5 Nov 2013
+ * Author:  Esri R&D Center Zurich
+ */
+
+version "2013.1"
+
+
+@Order(1) @Range(0,4) 
+attr NbrOfRightLanes 	= _getInitialRightLanes
+@Order(2) @Range("yellow","white","none") 
+attr Centerline 		= "yellow"
+
+@Order(3) @Range(1,50) 
+attr lampDistance = 15
+
+attr type = "MINOR"
+
+const TextureFolder 	= "streets/"
+const SidewalkHeight 	= 0.2  											# height of sidewalk (and depth of curbs)
+const lamp_texasset = "furniture/lamp.04.single.lod0.obj"
+
+
+
+const streetLength		= geometry.du(0,unitSpace)						# REALWORLD-distance in U-direction corresponds to length of street
+const nLanesTotal		= geometry.dv(0,uvSpace)						# TEXTURE-distance in V-direction corresponds to number of lanes
+const oneWay			= NbrOfRightLanes<=0 || NbrOfRightLanes>=nLanesTotal
+const nTiles			= case streetLength>10: rint(streetLength/14)	# all our street textures have a length of 14 meters
+						  case streetLength>4 : 1/2						# use only have the texture
+						  else				  : 1/6						# use only the start of the texture (i.e. centerline only)
+
+_getInitialRightLanes 	= case nLanesTotal>2: rint(nLanesTotal/2) 
+						  else				: 30%: rint(nLanesTotal/2) 40%: nLanesTotal else: 0   # adding some randomness to get a more diversified default appeareance
+
+
+# Default Start Rules for Street Networks
+
+@StartRule
+Street				--> Lanes
+Joint 				--> Lanes
+Crossing 			--> Asphalt		
+Junction 			--> Lanes
+JunctionEntry 		--> Asphalt	
+Freeway 			--> Lanes
+FreewayEntry 		--> Lanes
+Roundabout 			--> Asphalt
+RoundaboutIsland 	--> Asphalt
+RoundaboutEntry 	--> Asphalt
+Sidewalk			--> SidewalkWithCurbs
+
+
+# Lane Texturing
+
+Lanes -->
+	case Centerline=="none" || oneWay: LanesWithoutCenterline 
+	else							 : LanesWithCenterline 
+
+LanesWithCenterline -->					# note that centerline is a double line - this influence the mapping method (pls compare with the non-centerline case below)
+	translateUV(0,0,4-NbrOfRightLanes)  # number of lanes which the texture (with its 8 lanes) must be translated (in v-dir) so that its center is placed on street center
+	scaleUV(0,nTiles,1/8)				# per default, the u coord always goes from 0 to 1 on streets ... and setting the v coord (a street with 2 lanes has v coords from 0 to 2, this means it has to use the area from 0 to 0.25 on an image with 8 lanes)
+	texture(TextureFolder + "lanes_8_centerline_"+Centerline+"_14x28m.jpg")
+
+LanesWithoutCenterline -->
+	scaleUV(0,nTiles,1/4)									# same as above but this texture has only 4 lanes
+	scaleUV(0,1,nLanesTotal*256/(nLanesTotal*256 + 18))		# getting rid of the repeating edge line by cutting away a part of the texture (one lane is 256 px in the texture and a line is 18 px wide))
+	texture(TextureFolder + "lanes_4_white_stripes_14x14m.jpg")
+
+
+# Sidewalk
+
+SidewalkWithCurbs -->
+  	[ split(v,unitSpace,0){ SidewalkHeight: Curbs | ~1:  Pavement } ]
+	[ case type == "MAJOR":
+		alignScopeToAxes(y) t(0,SidewalkHeight,0)
+  		SidewalkLamps
+  	  else : NIL ] 
+	
+Curbs --> 
+	extrude(world.y,SidewalkHeight)
+  	tileUV(0,~2,'1) texture(TextureFolder + "curbs_2m.jpg")
+
+Pavement -->
+	translate(rel,world,0,SidewalkHeight,0)
+	tileUV(0,~2,'1) texture(TextureFolder + "pavement_01_2x2m.jpg")
+
+
+# Lamps
+
+SidewalkLamps --> 
+	case geometry.du(0,unitSpace) < 5: NIL // avoid lamps on short sidewalk segments
+	else :
+	// repeat-split the sidewalk into even lamp and spacer parts to evenly distribute lamps 
+  	split(u,unitSpace,0){ ~lampDistance :  NIL 
+    		| { 0.1: Lamp | ~lampDistance : NIL }* }
+
+
+Lamp -->
+	t(0,0,scope.sz-SidewalkHeight*2) // offset lamp position
+ 	s(0,5,0)      	// set height to 5 meters
+ 	r(0,90,0)		// asset is oriented along x, we therefore need to rotate 90 degrees
+ 	// insert the asset
+ 	// since the scope's dimension are zero in x and z, these are set according to the asset)
+ 	i(lamp_texasset)
+ 	set(material.ambient.r, 0.0)
+ 	set(material.ambient.g, 0.0)
+ 	set(material.ambient.b, 0.0)
+
+
+
+# Asphalt
+
+Asphalt -->
+	tileUV(0,14,14) texture(TextureFolder + "asphalt_14x14m.jpg")
+
+
+
+				

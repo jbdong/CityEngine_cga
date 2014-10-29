@@ -1,0 +1,30 @@
+/**
+ * File:    Facades.cga
+ * Created: 11 May 2012 19:56:15 GMT
+ * Author:  craig mccabe
+ */
+
+version "2014.0"
+
+// building colors
+attr bldgColor1 = "#FFFFFF"
+//attr bldgColor2 = "#FFFFFF"
+//attr bldgColor3 = "#FFFFFF"
+//attr bldgColor4 = "#FFFFFF"
+//attr bldgColor5 = "#FFFFFF"
+
+// building dimensions
+attr BLDGHEIGHT = 1
+
+// geometries
+
+Building -->
+	alignScopeToAxes(y)
+	s('1,0,'1)
+	extrude(BLDGHEIGHT*.3048)
+	color(bldgColor1)
+	set(material.opacity,0.5)
+	comp(f){bottom : NIL | all = Wall. } 
+
+
+	

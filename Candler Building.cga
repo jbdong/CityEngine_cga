@@ -1,0 +1,471 @@
+/**
+ * File:    Candler Building.cga
+ * Created: 7 May 2008
+ * Updated: 23 April 2014
+ * Author:  Esri R+D Center Zurich
+ */
+
+version "2014.0"
+
+
+
+@Order(1) @Range(28,150)
+attr BuildingHeight 	= 62
+@Order(2) @Range("Visualization","3DPrint") @Description("Generates a watertight model with less detail - suited for most 3D printers.")
+attr Mode = "Visualization"
+
+
+@Group("Facade",3) 
+@Order(1) @Range(2.5,5)
+attr FloorHeight 		= 3.5
+@Order(2) @Range(3,6)
+attr GroundfloorHeight 	= 4.3
+@Order(3) @Range(1.5,5)
+attr TileWidth 		 	= 3.55
+@Order(4) @Range(0.5,3)
+attr CorniceOverhang 	= 1.2
+
+@Group("Windows",4)
+@Order(1) @Range(1.3,5)
+attr WindowHeight		= 2.05
+@Order(2) @Range(1,4)
+attr FrontWindowWidth	= 2.15
+@Order(3) @Range(0.5,2)
+attr RearWindowWidth	= 1.2
+@Order(4) @Range(0,0.7)
+attr SillSize			= 0.26
+
+@Group("Wall",5)
+@Order(1) @Range(0,2)
+attr CornerWallWidth	= 1
+@Order(2) @File("jpg","png","tif")
+attr WallTexture		= "facade/walls/bricks.jpg"
+@Order(3)
+attr ColorizeWall		= "#FCEFE2"
+
+@Hidden
+attr onStreet		= true
+
+
+
+const winSideW	= (TileWidth-FrontWindowWidth)/2
+const dividerW	= 0.25
+const sillH		= case FloorHeight>WindowHeight+SillSize: (FloorHeight-WindowHeight)*0.66 else: SillSize
+
+
+
+
+
+# ----------------------------------------
+# Extrusion and facade dispatcher
+# ----------------------------------------
+
+@StartRule
+Footprint --> 
+	InsideSkin
+	extrude(BuildingHeight) Solid
+	
+Solid -->
+	comp(f){ front: FrontFacade 
+		   | back : RearFacade 
+		   | left : SideFacade 		# instead of using "side" as selector, we use "left" and ..
+		   | right: SideFacade 		# .. "right" so that we can differentiate later (needed for the cornice)
+		   | top  : Roof }	
+
+FrontFacade -->
+	set(onStreet,true) 	# is facing street (i.e. has shops, ledges and cornice)
+	Facade(2,1,			# mid part: double window on sides, single in center
+		   3,1,2)  		# upper part: triple window on edge, double in center and single in between
+	
+RearFacade -->
+	set(onStreet,false) # is not facing street (i.e. no shops nor cornice)
+	Facade(0,0, 0,0,0)	# small windows only (marked with 0)
+
+SideFacade -->
+	case scope.sx < 30:  # catching inner backfacades (hack due to the uncommon footprint)
+		RearFacade
+	else: 	
+		set(onStreet,true) 	# is facing street (i.e. has shops, ledges and cornice)
+		Facade(2,1,			# mid part: double window on sides, single in center
+			   3,2,3)		# upper part: triple window on edge, in center and in between
+
+
+
+# ----------------------------------------
+# Facade
+# ----------------------------------------
+
+Facade(m1,m2,u1,u2,u3) -->
+	setupProjection(0,scope.xy,5,5,1) projectUV(0)  # setup texture coords for tiles of 2m x 2m
+	setupProjection(2,scope.xy,'1,'1) projectUV(2)  # setup texture coords in uv-set 2 (dirtmap in CityEngine)
+	split(y){ ~2.3: Base 
+			| ~12 : Mid(m1,m2) 
+			| ~3  : Upper(u1,u2,u3)
+			| 2.5 : Top }
+
+Base -->
+	case onStreet: 
+		split(y){ GroundfloorHeight : Floor(-1,-1,-2)   # lower basefloor with shopwindows (-1) and shopddoor centered (-2)
+				| { ~FloorHeight    : Floor(1,1,1) }* }  # upper basefloor with single windows (1)	 
+	else: 
+		Wall
+
+Mid(mid1,mid2) -->
+	split(y){ ~FloorHeight : Floor(mid1, mid2, mid2) }*  # split middle part into floors
+	Ledge(0.6) 
+	
+Upper(u1,u2,u3) -->
+	split(y){~FloorHeight : Floor(u1, u2, u3) }* 
+	Ledge(0.4)
+		
+Top -->
+	Wall Cornice
+
+
+
+# ----------------------------------------
+# Floor
+# ----------------------------------------
+
+Floor(a,b,c) -->
+	case scope.sy < 2.3:
+		Wall
+	case scope.sx > TileWidth*3+CornerWallWidth*2:  # only for facades which are wide enough
+		split(x){ CornerWallWidth : Wall 
+				| TileWidth   : Tile(a) 
+				| {~TileWidth : Tile(b) }* 
+				| TileWidth   : Tile(c) 
+				| {~TileWidth : Tile(b) }* 
+				| TileWidth   : Tile(a)  
+				| CornerWallWidth : Wall }	
+	else:
+		split(x){ CornerWallWidth : Wall
+				| { ~TileWidth : Tile(a) }*
+				| CornerWallWidth : Wall }	
+
+
+
+# ----------------------------------------
+# Tile
+# ----------------------------------------
+
+Tile(n) -->
+	case onStreet:
+		split(x){ winSideW: Wall | ~1: SubTile(n) | winSideW: Wall }
+	else:  
+		split(x){ ~1: Wall | RearWindowWidth: SubTile(1) | ~1: Wall }
+
+SubTile(n) -->
+	case n > 0: 
+		split(y){ sillH: Wall | WindowHeight: Windows(n) | ~1: Wall }
+	else:
+		GroundSubTile(n)
+
+
+
+# ----------------------------------------
+# Groundfloor
+# ----------------------------------------
+
+GroundSubTile(type) -->
+ 	case type == -2: # Door
+ 		GroundfloorOpening(1.2) t(0,0,-1.2)
+ 		Tex("facade/misc/groundFloorTiles_2048x256.jpg",0,8)
+ 	else : 	
+		GroundfloorOpening(0.6) t(0,0,-0.6) Frame 
+		Tex("facade/misc/groundFloorTiles_2048x256.jpg",floor(rand(1,7.99)),8)
+
+GroundfloorOpening(depth) -->
+	extrude(-depth) 
+	comp(f){ left: WallOpening | right: WallOpening | back: WallOpening }
+
+Tex(image,nbr,nTiles) -->
+	tileUV(0,'nTiles,'1) translateUV(0,-nbr/nTiles,0)
+	texture(image)
+	set(material.specular.r,0.8) set(material.specular.g,0.8) set(material.specular.b,0.8)
+	set(material.specularmap,image)
+	set(material.shininess,20) set(material.reflectivity,0.3)
+
+Frame -->
+	case Mode != "3DPrint":
+		color("#111111") s('1,'1,0.15) i("facade/misc/shopwin_frame.obj") 
+	else:
+		NIL
+
+
+
+# ----------------------------------------
+# Window
+# ----------------------------------------
+
+Windows(n) -->
+	split(x){ { ~scope.sx/n: Window | dividerW: Wall }* | ~scope.sx/n: Window }
+			
+Window -->
+	Sill WindowOpening(0.3) t(0,0,-0.3) WindowAsset
+	
+WindowAsset -->
+	case Mode != "3DPrint":
+		s('1,'1,0.15) i("facade/windows/win.single.05.sashwindow.obj")
+		Tex("facade/windows/windowTiles_2000x256.jpg",floor(rand(0,9.99)),10)
+	else:
+		Tex("facade/windows/windowTiles_2000x256.jpg",floor(rand(0,9.99)),10)
+
+WindowOpening(depth) -->
+	extrude(-depth) comp(f){ front: reverseNormals SillTexture | side= WallOpening }
+
+Sill -->
+	case SillSize > 0:
+		s(scope.sx+dividerW,SillSize,0.1) center(x) t(0,-SillSize,0)
+		i("builtin:cube") SillTexture
+	else:
+		NIL
+
+SillTexture -->
+	texture("facade/windows/sill.jpg")
+	
+
+# ----------------------------------------
+# Wall
+# ----------------------------------------
+
+Wall --> 
+	color(ColorizeWall) 
+	texture(WallTexture)
+	set(material.dirtmap,"facade/misc/dirtmap.jpg")		# wall uses second UV set
+	
+WallOpening -->
+	reverseNormals projectUV(0) projectUV(2) Wall
+
+WallWithoutUVs(scaleDirtmap) -->
+	setupProjection(0,scope.xy,5,5,1) projectUV(0)  # setup texture coords for tiles of 2m x 2m
+	setupProjection(2,scope.xy,'1,'scaleDirtmap) projectUV(2)  # setup texture coords in uv-set 2 (dirtmap in CityEngine)
+	Wall	
+
+
+
+# ----------------------------------------
+# Ledges
+# ----------------------------------------
+
+Ledge(size) -->
+	case onStreet:
+		s('1,size,size) t(0,sillH-size+0.02,0) SubLedge("facade/ledges/ledgeSmall.obj")
+	else:
+		NIL
+
+SubLedge(elem) -->
+	case comp.sel == "left" :
+		s('1.2,'1,'1) LedgeElement(elem)  # enlarge to right side so that it can be trimmed
+	case comp.sel == "right" :
+		t('-0.2,0,0) s('1.2,'1,'1) LedgeElement(elem)  # enlarge to left side 
+	else :
+		s('1.4,'1,'1) center(x) LedgeElement(elem)   # for front facade enlarge it to both sides
+
+LedgeElement(asset) -->	
+	i(asset) texture("facade/ledges/ledge.jpg")
+
+
+	
+# ----------------------------------------
+# Cornice
+# ----------------------------------------
+
+Cornice -->
+	case onStreet:
+		s('1,'1,CorniceOverhang) SubLedge("facade/ledges/ledgeLarge.obj")
+		split(x){ CornerWallWidth: NIL 
+				| TileWidth   	 : Modillion 
+				| {~TileWidth 	 : Modillion }* 
+				| TileWidth   	 : Modillion 
+				| {~TileWidth 	 : Modillion }* 
+				| TileWidth   	 : Modillion  
+				| CornerWallWidth: Modillion }	
+	else:
+		NIL
+
+Modillion -->	
+	s(1.3,scope.sy+0.15,CorniceOverhang*0.8) t('-0.5,-0.7,0) 
+	LedgeElement("facade/ledges/modillion2.obj")
+
+
+
+# ----------------------------------------
+# Roof
+# ----------------------------------------
+
+Roof -->
+	offset(-0.8)
+	comp(f){ border: WallWithoutUVs(5) 
+		   | inside: [ extrude(-0.3) comp(f){ side: reverseNormals WallWithoutUVs(5) } ] 
+		   			 t(0,0,-0.3) RoofPlane }
+	
+RoofPlane -->
+	RoofTexture
+	alignScopeToGeometry(yUp,0,0)
+	[ convexify comp(f){ all: RoofPlaneParts } ]
+	Pipes
+	
+RoofPlaneParts -->
+	case geometry.area > 200	  : RoofPlanePartLarge
+	case geometry.isRectangular(1): RoofPlanePartRectangular
+	else						  : RoofPlanePartOther
+
+RoofPlanePartLarge -->
+	split(x){ ~1: NIL | ~2: split(y){ ~1.2: NIL | ~1: RoofAccess } | ~1: NIL }
+		
+RoofPlanePartRectangular -->
+	s(8.2,2.5,'0.3) center(xyz)
+	Ventilation
+	
+RoofPlanePartOther -->
+	NIL
+
+RoofTexture -->
+	setupProjection(0,scope.xy,20,15) projectUV(0)
+	texture("roof/roof.jpg")
+
+
+
+# ----------------------------------------
+# Roof Pipes
+# ----------------------------------------
+
+Pipes -->
+	[ offset(-1.4,inside) PipeEdges ]
+	offset(-0.6,inside) Pipe(0.35,0,0.985)
+	offset(-0.6,inside) Pipe(0.6,0.4,1.3) 
+	offset(-0.55,inside) Pipe(0.25,0,1)
+	offset(-0.4,inside) Pipe(0.25,0,1)
+	split(z){ '0.3: NIL | '0.7:
+		offset(-1.85,inside) Pipe(0.25,0,1.3)	
+		offset(-0.4,inside) Pipe(0.25,0,1.3) }	
+	
+Pipe(diameter,h,scaleX) -->
+	t(0,h,0) extrude(diameter)
+	comp(f){ side: Pipe(scaleX) PipeHolders(diameter,h) }	
+	
+Pipe(scaleX) -->
+	s('scaleX,'1,scope.sy) center(xyz)
+	i("primitives/cylinder.hor.obj") 
+	setupProjection(0,scope.xz,'1,'20,0,'8) projectUV(0) PipeMaterial
+	
+PipeHolders(diameter,h) -->
+	case scope.sx < 4: NIL else: 
+	split(x){ ~3: NIL 
+				| { 0.3: PipeHolder(diameter,h) | 4: NIL }* 
+				| 0.3: PipeHolder(diameter,h) | ~3: NIL }
+	
+PipeHolder(diameter,h) -->
+	case h > 0:
+		PipeHolderTop(diameter)
+		s('1,h-diameter*0.2,diameter*1.4) center(z) t(0,-h,0)
+		i("builtin:cube") PipeMaterial
+	else:
+		PipeHolderTop(diameter)
+
+PipeHolderTop(diameter) --> 
+	s('1,diameter*1.4,diameter*1.4) center(xyz)
+	i("primitives/cylinder.half.obj") PipeMaterial
+	
+PipeEdges -->
+	extrude(0.7)
+	comp(e){ vertical: s('1,0.6,2.9) center(yz) t(0,0,-0.13) 
+					   i("builtin:cube") PipeMaterial }
+
+PipeMaterial -->	
+	texture("facade/misc/dirtmap.jpg")	# pipes are white i.e. only some dirt on it
+
+
+
+# ----------------------------------------
+# Ventilation
+# ----------------------------------------
+
+Ventilation -->
+	envelope(world.up,0.6,0.45,45,0.45,45,0.45,45) 
+	[ setupProjection(0,scope.xy,'1,'1) projectUV(0) color("#cccccc") PipeMaterial ]
+	split(x){ ~scope.sy/2: VerticalPipes | { ~scope.sy: VerticalPipes }* | ~scope.sy/2: NIL }
+	t(0,0,0.6)
+	split(x){ ~scope.sy: Ventilator }*
+	
+VerticalPipes -->
+	comp(f){ right: t(0,0,-0.1) Pipe(0.2,0,1.5) }
+	
+Ventilator -->
+	case scope.sx > scope.sy: Ventilator(scope.sy*0.8)
+	else					: Ventilator(scope.sx*0.8)
+	
+Ventilator(size) -->
+	s(size,size,0.15) center(xy)
+	rotateScope(0,90,0)
+	i("primitives/cylinder.hor.obj")
+	setupProjection(0,scope.yz,'1,'1) projectUV(0)
+	texture("roof/ventilator.jpg")
+
+
+
+# ----------------------------------------
+# Roof Access
+# ----------------------------------------
+
+RoofAccess -->
+	extrude(2.3)
+	comp(f){ front: RoofAccessFront | side: WallWithoutUVs(1) | bottom: WallWithoutUVs(1) | top:
+		offset(-0.4)
+		comp(f){ border: WallWithoutUVs(5) 
+		   	   | inside: [ extrude(-0.1) comp(f){ side: reverseNormals WallWithoutUVs(5) } ] 
+		   			 	 t(0,0,-0.1) RoofTexture }
+	}
+	
+RoofAccessFront -->
+	setupProjection(0,scope.xy,5,5,1) projectUV(0)  # setup texture coords for tiles of 2m x 2m
+	setupProjection(2,scope.xy,'1,'1) projectUV(2)  # setup texture coords in uv-set 2 (dirtmap in CityEngine)
+	split(x){ ~1: Wall | 0.9: split(y){ 0.1: Wall | 1.9: RoofDoor | ~1: Wall } | ~5: Wall }
+	
+RoofDoor -->
+	WindowOpening(0.15) t(0,0,-0.15)
+	tileUV(0,'1.85*8,'1.1)
+	texture("facade/misc/groundFloorTiles_2048x256.jpg")
+	RoofDoor.
+
+	
+	
+# ----------------------------------------	
+# Inside Skin (for 3D Printing)
+# ----------------------------------------
+
+const thickness = 1.3
+
+InsideSkin -->
+	case Mode != "3DPrint":
+		NIL
+	else:
+		[ offset(-thickness-thickness*0.7,border) comp(f){ all: BottomSkin }  ]
+		offset(-thickness,inside)
+		[ offset(-thickness*0.7,inside) extrude(6) comp(f){ side: Skin } ]
+		t(0,6,0) 
+		[ offset(-thickness*0.7,border) Skin. ]
+		extrude(BuildingHeight-thickness-6) comp(f){ bottom: NIL | all: Skin }
+
+Skin -->
+	reverseNormals Wall	
+	
+BottomSkin -->
+	case scope.sx>30 || (scope.sx<20 && scope.sx>15): 
+		split(x){ CornerWallWidth : Skin 
+				| TileWidth   : SkinTile(0.6) 
+				| {~TileWidth : SkinTile(0.6) }* 
+				| TileWidth   : SkinTile(1.2) 
+				| {~TileWidth : SkinTile(0.6) }* 
+				| TileWidth   : SkinTile(0.6)  
+				| CornerWallWidth : Skin }
+	else: 
+		Skin
+	
+SkinTile(d) -->
+	split(x){ winSideW: Skin | ~1: split(y){d:NIL|~1:Skin} | winSideW: Skin }	
+	
+	
+		
+	

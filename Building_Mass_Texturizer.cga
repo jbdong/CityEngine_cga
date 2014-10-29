@@ -1,0 +1,87 @@
+/**
+ * File:    Building_Mass_Texturizer.cga
+ * Created: 20 Mar 2011 16:42:13 GMT
+ * Updated: 10 April 2014
+ * Author:  Esri R&D Center Zurich
+ */
+ 
+ 
+version "2014.0"
+
+
+
+@Hidden(Usage,BuildingHeight)
+import Facade_Textures:"/ESRI.lib/rules/Facades/Facade_Textures.cga" (BuildingHeight=BuildingHeight,Usage=Usage)
+@Hidden(Usage)
+import Facade_Schematic:"/ESRI.lib/rules/Facades/Facade_Schematic.cga" (Usage=Usage)
+import Roof_Textures:"/ESRI.lib/rules/Roofs/Roof_Textures.cga"
+
+
+
+###################################
+# Attributes
+#
+
+@Group("Building Settings",1) 
+
+@Order(1) @Range(1,400) 
+attr BuildingHeight = scope.sy
+@Order(3) @Range("Random","Agricultural","Assembly","Educational","Industry","Mercantile","Office","Other","Public","Residential","Service","Transport","Unknown","Utility")
+attr Usage 			= "Random"
+
+@Group("Visualization Options",2) 
+
+@Order(1) @Range("realistic with facade textures","schematic facades","solid color")
+attr Representation = "realistic with facade textures"
+@Order(2) @Range(0,1)
+attr Transparency 	= 0
+@Order(3) @Range(0,1)
+attr OverwriteColor = "#ffffff"
+
+
+
+
+
+###################################
+###################################
+#
+# RULES
+#
+###################################
+###################################
+
+@StartRule
+Generate -->
+	cleanupGeometry(all,1)
+	alignScopeToAxes(y) 
+	set(material.opacity,1-Transparency)
+	color(OverwriteColor)
+	comp(f){side : Facade | top : RoofPlane }
+
+
+
+###################################
+# Surface Texturing & Coloring
+#
+
+RoofPlane -->
+	case Representation == "realistic with facade textures":
+		Roof_Textures.Generate
+	else:
+		SolidColor
+
+Facade -->
+	case Representation == "realistic with facade textures": 
+		Facade_Textures.Generate
+	case Representation == "schematic facades":
+		case OverwriteColor == "#ffffff":
+			Facade_Schematic.Generate
+		else:
+			set(Facade_Schematic.SecondaryColor,OverwriteColor)
+			Facade_Schematic.Generate
+	else: 
+		SolidColor
+
+SolidColor -->
+	color(OverwriteColor)
+	

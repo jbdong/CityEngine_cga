@@ -1,0 +1,82 @@
+/**
+ * File:    reporting_01.cga
+ * Created: 15 Nov 2011 15:44:12 GMT
+ * Author:  andi
+ */
+
+
+version "2012.1"  
+
+
+# ---------------------------------------
+# Attributes
+# ---------------------------------------
+
+
+@Group("City Attributes",0)
+attr greenspacePercentage = 30
+	
+
+@Group("Building attributes",1)
+attr nFloor = ceil(rand(1,15)  *buildingHeightFactor)
+
+@Group("Building attributes")
+attr floorHeight = rand(4,5)
+
+@Hidden
+attr distanceStreet = 
+	20% : 0
+	else : rand(3,6)
+
+@Hidden
+attr distanceBuildings = 
+	50% : 0
+	else : rand(4,8)
+
+@Group("Mapped",99)
+attr buildingHeightFactor = 1
+
+
+
+
+
+# ---------------------------------------
+# Start with the lot
+# ---------------------------------------
+
+@StartRule
+Lot --> 
+	case p(greenspacePercentage/100):
+		report("Area.Greenspace",geometry.area)
+		GreenSpace
+	else:
+		report("Area.BuildUp",geometry.area)
+		BuildingLot
+
+LotInner --> Lot
+LotCorner --> Lot
+
+
+
+# ---------------------------------------
+# Building
+# ---------------------------------------
+
+BuildingLot -->
+	setback(distanceStreet)
+		{ streetSide: OpenSpace 
+		| remainder: Parcel }
+
+
+Parcel -->
+	setback(distanceBuildings/2)
+		{ noStreetSide: OpenSpace 
+		| remainder: Footprint }	
+
+Footprint --> extrude(floorHeight*nFloor) Mass.
+
+GreenSpace --> color("#22aa22") GreenSpace.
+		
+OpenSpace --> color("#777777") OpenSpace.
+
+		

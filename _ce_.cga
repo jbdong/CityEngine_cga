@@ -1,0 +1,520 @@
+##############################
+##
+##  string utils
+##
+##############################
+
+
+#   
+# name:     findFirst
+# info:     find first occurrence of matchString and return its start position
+# example:  findFirst("rule your city with cityengine","city") returns 10
+# 
+findFirst(inputString,matchString) =
+    find(inputString,matchString,0)
+
+#   
+# name:     findLast
+# info:     find last occurrence of matchString and return its start position
+# example:  findLast("rule your city with cityengine","city") returns 20
+# 
+findLast(inputString,matchString) =
+    find(inputString,matchString,count(inputString,matchString)-1)
+
+#   
+# name:     getPrefix
+# info:     extract inputString from start to first occurrence of matchString
+# example:  getPrefix("rule your city with cityengine","city") returns "rule your "
+# 
+getPrefix(inputString,matchString) = 
+    case count(inputString,matchString) > 0:
+        substring(inputString,0,findFirst(inputString,matchString))
+    else:
+        inputString
+    
+#   
+# name:     getSuffix
+# info:     extract inputString from (end of) last occurrence of matchString to end
+# example:  getSuffix("rule your city with cityengine","city") returns "engine"
+# 
+getSuffix(inputString,matchString) = 
+    case count(inputString,matchString) > 0:
+        substring(inputString,findLast(inputString,matchString)+len(matchString),len(inputString))
+    else:
+        inputString
+
+#   
+# name:     getRange
+# info:     extract inputString from first occurrence of lmatchString to last occurrence of rmatchString
+# example:  getRange("rule your city with cityengine","y","city") returns "our city with "
+# 
+getRange(inputString,lmatchString,rmatchString) =
+    case count(inputString,lmatchString) > 0 && count(inputString,rmatchString) > 0:
+        substring(inputString,findFirst(inputString,lmatchString)+len(lmatchString),findLast(inputString,rmatchString))
+    case count(inputString,lmatchString) > 0:
+        substring(inputString,findFirst(inputString,lmatchString)+len(lmatchString),len(inputString))
+    case count(inputString,rmatchString) > 0:
+        substring(inputString,0,findLast(inputString,rmatchString))
+    else:
+        inputString
+    
+#   
+# name:     replace
+# info:     replace oldString with newString
+# example:  replace("rule your city with cityengine","your city","designs") returns "rule designs with cityengine"
+# 
+replace(inputString,oldString,newString) =
+    case count(inputString,oldString) > 0:
+        getPrefix(inputString,oldString) + newString + replace(substring(inputString,findFirst(inputString,oldString)+len(oldString),len(inputString)),oldString,newString)
+    else:
+        inputString
+        
+##############################
+##
+##  string list utils
+##
+##  a string list is a string with ";"-seperated entries (as returned by the builtin function "fileSearch")
+##
+##############################
+
+#
+# name:     listTerminate
+# info:     returns list with seperator ";" at the end
+# example:  listTerminate("rule;your;city") returns "rule;your;city;"
+#
+listTerminate(stringList) =
+      case stringList != "" && substring(stringList,len(stringList)-1,len(stringList)) != ";":
+            stringList + ";"
+      else:
+            stringList
+
+#
+# name:     listClean
+# info:     returns cleaned stringList (removes empty items and checks if seperator ";" at the end)
+# example1: listClean(";;;;;my;city;rules;;your;;city;;") returns "my;city;rules;your;city;"
+# example2: listClean(";;cityengine;;;rules") returns "cityengine;rules;"
+#
+listClean(stringList) =
+    case findFirst(stringList,";") == 0:
+        listClean(substring(stringList,1,len(stringList)))           # recursively remove empty items at the beginning
+    case count(stringList,";;") > 0:
+        listClean(replace(stringList,";;",";"))                      # recursively remove other empty items
+    else:
+        listTerminate(stringList)                                    # and add ";" at the end if not yet existing
+
+
+
+
+#
+# name:     listSize
+# info:     returns number of elements of list
+# example:  listSize("cityengine;rules;") returns 2
+#
+listSize(stringList) =
+    count(listTerminate(stringList),";")
+
+
+
+#
+# name:     listIndex
+# info:     returns index of first item with searchString (optional: leading or trailing * are used as wildcard)
+# example1: listIndex("rule;your;city;","city") returns 2
+# example2: listIndex("rule;your;city;","*y") returns 2
+# example3: listIndex("rule;your;city;","*y*") returns 1
+#       
+listIndex(stringList,searchString) =
+    case findFirst(searchString,"*") == 0 && findLast(searchString,"*") == len(searchString)-1 && count(stringList,substring(searchString,1,len(searchString)-1)) > 0:      # leading AND trailing *
+        count(getPrefix(stringList,substring(searchString,1,len(searchString)-1)),";")
+    case findFirst(searchString,"*") == 0 && count(stringList,substring(searchString,1,len(searchString))+";") > 0:                                         # leading * 
+        count(getPrefix(stringList,substring(searchString,1,len(searchString))+";"),";")        
+    case findLast(searchString,"*") == len(searchString)-1 && count(";"+stringList,";"+substring(searchString,0,len(searchString)-1)) > 0:                          # trailing *
+        count(getPrefix(";"+stringList,";"+substring(searchString,0,len(searchString)-1)),";")
+    case count(";"+stringList,";"+searchString+";") > 0:                                                                                                                                                                                                                                                # exact match
+        count(getPrefix(";"+stringList,";"+searchString+";"),";")
+    else:                                                                                                                                                                                                                                                                               # otherwise
+        -1
+
+
+#
+# name:     listFirst
+# info:     returns first item 
+# example:  listFirst("rule;your;city;") returns "rule"
+#       
+listFirst(stringList) =
+    getPrefix(stringList,";")
+#
+# name:     listItem
+# info:     returns item at given index (without ";")
+# example:  listItem("rule;your;city;",2) returns "city"
+#       
+listItem(stringList,index) =
+    case index == 0:
+        listFirst(stringList)
+    case index < listSize(stringList):
+        substring(stringList,find(stringList,";",index-1)+1,find(listTerminate(stringList),";",index))
+    else:
+        ""
+
+#
+# name:     listLast
+# info:     returns last item 
+# example:  listLast("rule;your;city;") returns "city"
+#       
+listLast(stringList) =
+    listItem(stringList,listSize(stringList)-1)
+
+#
+# name:     listRandom
+# info:     returns random item 
+# example:  listRandom("rule;your;city;") returns "city" or "your" or "city"
+#       
+listRandom(stringList) =
+    listItem(stringList,floor(rand(listSize(stringList)-0.0000001)))
+
+#
+# name:     listAdd
+# info:     returns stinglist with appended item(s)
+# example:  listAdd("rule;your;","city;") returns "rule;your;city;"
+#       
+listAdd(stringList,items) =
+    listTerminate(stringList) + listTerminate(items)
+
+#
+# name:     listRange
+# info:     returns items from index1 to index2 (the latter is excluded)
+# example:  listRange("rule;your;city;with;cityengine;",0,3) returns "rule;your;city;"
+#       
+listRange(stringList,index1,index2) =
+    case index1 >= index2 || index1 >= listSize(stringList):
+        ""
+    case index1 <= 0:
+        case index2 < listSize(stringList):
+            substring(stringList,0,find(stringList,";",index2-1)+1)
+        else:
+            listTerminate(stringList)
+    case index2 >= listSize(stringList):
+        listTerminate(substring(stringList,find(stringList,";",index1-1)+1,len(stringList)))
+    else:
+        substring(stringList,find(stringList,";",index1-1)+1,find(stringList,";",index2-1)+1)
+    
+ 
+#
+# name:     listCount
+# info:     returns number of items with searchString (optional: leading or trailing * are used as wildcard)
+# example1: listCount("rule;your;city;","city") returns 1
+# example2: listCount("city;cityengine;city;", "city") returns 2
+# example3: listCount("rule;your;city;","*y*") returns 2
+# example4: listCount("rule;your;city;","*y") returns 1
+#
+listCount(stringList,searchString) =
+    case listIndex(stringList,searchString) >= 0:
+        1 + listCount(listRange(stringList,listIndex(stringList,searchString)+1,listSize(stringList)),searchString)
+    else:
+        0
+
+
+#   
+# name:     listRemove
+# info:     removes first item with searchString from list (optional: leading or trailing * are used as wildcard)
+# example1: listRemove("rule;your;city;","your") returns "rule;city;"
+# example2: listRemove("rule;your;city;","*u*") returns "your;city;"
+# example3: listRemove("floor_1;floor_2;floor_3;", "*_2") returns "floor_1;floor_3;"
+# 
+listRemove(stringList,searchString) =   
+    case listIndex(stringList,searchString) >= 0:
+          listRange(stringList,0,listIndex(stringList,searchString)) + listRange(stringList,listIndex(stringList,searchString)+1,listSize(stringList))
+    else:   
+        stringList  
+
+#   
+# name:     listRemoveAll
+# info:     removes all items with searchString from list (optional: leading or trailing * are used as wildcard)
+# example1: listRemoveAll("rule;your;designs;and;your;cities;","your") returns "rule;designs;and;cities;"
+# example2: listRemoveAll("rule;your;designs;and;your;cities;","*u*") returns "designs;and;cities;"
+# 
+listRemoveAll(stringList,searchString) =    
+    case listIndex(stringList,searchString) >= 0:
+        listRange(stringList,0,listIndex(stringList,searchString)) + listRemoveAll(listRange(stringList,listIndex(stringList,searchString)+1,listSize(stringList)),searchString)
+    else:   
+        stringList
+
+#   
+# name:     listRetainAll
+# info:     retains only the items with searchString from list (optional: leading or trailing * are used as wildcard)
+# example1: listRetainAll("rule;your;designs;and;your;cities;","*s") returns "designs;cities;"
+# example2: listRetainAll("floor;floor_1;floor_2;", "*_*") returns "floor_1;floor_2;"
+# 
+listRetainAll(stringList,searchString) =    
+    case listIndex(stringList,searchString) >= 0:
+        listItem(stringList,listIndex(stringList,searchString)) + ";" + listRetainAll(listRange(stringList,listIndex(stringList,searchString)+1,listSize(stringList)),searchString)
+    else:   
+        ""
+        
+##############################
+##
+##  file utils
+##
+##############################
+
+#   
+# name:     fileExtension
+# info:     returns file extension (suffix) of given input string
+# example:  fileExtension("assets/obj/mygeometry.01.obj") returns "obj"
+# 
+fileExtension(path) = 
+    case count(path,".") > 0:
+        getSuffix(path,".")
+    else:
+        ""
+
+#
+# name:     fileName
+# info:     returns filename without path
+# example:  fileName("assets/obj/mygeometry.01.obj") returns "mygeometry.01.obj"
+#
+fileName(path) =
+    case count(path,"\\") > 0:
+        getSuffix(path,"\\")
+    case count(path,"/") > 0:
+        getSuffix(path,"/")
+    else:
+        path
+
+#
+# name:     fileBasename
+# info:     returns filename without directories and extension
+# example:  fileBasename("assets/obj/mygeometry.01.obj") returns "mygeometry.01"
+#
+fileBasename(path) =
+    case count(fileName(path),".") > 0:
+        fileName(substring(path,0,findLast(path,".")))
+    else:
+        fileName(path)
+
+
+#
+# name:     fileDirectory
+# info:     returns directory without filename
+# example:  fileDirectory("assets/obj/mygeometry.01.obj") returns "assets/obj/"
+#
+fileDirectory(path) =
+    case count(path,"\\") > 0:
+        substring(path,0,findLast(path,"\\")+1)
+    case count(path,"/") > 0:
+        substring(path,0,findLast(path,"/")+1)
+    else:
+        ""
+
+
+
+#
+# name:     fileRandom
+# info:     returns random file from list specified in searchQuery
+# example:  fileRandom("assets/*.obj")
+#
+fileRandom(searchQuery) =
+    listRandom(fileSearch(searchQuery))
+
+#
+# name:     imageBestRatio
+# info:     returns from list specified with searchQuery the texture with the best ratio match (according to specified axis)
+# example:  imageBestRatio("assets/*.png","xz")
+#
+imageBestRatio(searchQuery,axisSelector) = 
+    case axisSelector == "xz":
+        listFirst(imagesSortRatio(fileSearch(searchQuery),xz))
+    case axisSelector == "yx":
+        listFirst(imagesSortRatio(fileSearch(searchQuery),yx))
+    case axisSelector == "yz":
+        listFirst(imagesSortRatio(fileSearch(searchQuery),yz))
+    case axisSelector == "zx":
+        listFirst(imagesSortRatio(fileSearch(searchQuery),zx))
+    case axisSelector == "zy":
+        listFirst(imagesSortRatio(fileSearch(searchQuery),zy))
+    else:  // "xy"
+        listFirst(imagesSortRatio(fileSearch(searchQuery),xy))
+
+#
+# name:     imageApproxRatio
+# info:     returns random file from the n best textures specified in searchQuery
+# example:  imageApproxRatio("assets/*.png","xz",5)
+#
+imageApproxRatio(searchQuery,axisSelector,n) = 
+    case n > 0:
+        case axisSelector == "xz":
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),xz),0,n))
+        case axisSelector == "yx":
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),yx),0,n))
+        case axisSelector == "yz":
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),yz),0,n))
+        case axisSelector == "zx":
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),zx),0,n))
+        case axisSelector == "zy":
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),zy),0,n))
+        else:  // "xy"
+            listRandom(listRange(imagesSortRatio(fileSearch(searchQuery),xy),0,n))
+    else:
+        case axisSelector == "xz":
+            listRandom(imagesSortRatio(fileSearch(searchQuery),xz))
+        case axisSelector == "yx":
+            listRandom(imagesSortRatio(fileSearch(searchQuery),yx))
+        case axisSelector == "yz":
+            listRandom(imagesSortRatio(fileSearch(searchQuery),yz))
+        case axisSelector == "zx":
+            listRandom(imagesSortRatio(fileSearch(searchQuery),zx))
+        case axisSelector == "zy":
+            listRandom(imagesSortRatio(fileSearch(searchQuery),zy))
+        else:  // "xy"
+            listRandom(imagesSortRatio(fileSearch(searchQuery),xy))
+
+#
+# name:     assetBestSize
+# info:     returns from list specified with searchQuery the asset with the best size match (according to specified axis)
+# example:  assetBestSize("assets/*.obj","xz")
+#
+assetBestSize(searchQuery,axisSelector) = 
+    case axisSelector == "x":
+        listFirst(assetsSortSize(fileSearch(searchQuery),x,0))
+    case axisSelector == "xy":
+        listFirst(assetsSortSize(fileSearch(searchQuery),xy,0))
+    case axisSelector == "xz":
+        listFirst(assetsSortSize(fileSearch(searchQuery),xz,0))
+    case axisSelector == "y":
+        listFirst(assetsSortSize(fileSearch(searchQuery),y,0))
+    case axisSelector == "yz":
+        listFirst(assetsSortSize(fileSearch(searchQuery),yz,0))
+    case axisSelector == "z":
+        listFirst(assetsSortSize(fileSearch(searchQuery),z,0))
+    else:   // "xyz"
+        listFirst(assetsSortSize(fileSearch(searchQuery),xyz,0))
+    
+#
+# name:     assetApproxSize
+# info:     returns random file from the n best assets specified in searchQuery which fit with best size
+# example:  assetApproxSize("assets/*.obj","xz",5)
+#
+assetApproxSize(searchQuery,axisSelector,n) = 
+    case axisSelector == "x":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),x,0),0,n))
+    case axisSelector == "xy":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),xy,0),0,n))
+    case axisSelector == "xz":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),xz,0),0,n))
+    case axisSelector == "y":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),y,0),0,n))
+    case axisSelector == "yz":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),yz,0),0,n))
+    case axisSelector == "z":
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),z,0),0,n))
+    else:   // "xyz"
+        listRandom(listRange(assetsSortSize(fileSearch(searchQuery),xyz,0),0,n))
+
+#
+# name:     assetFitSize
+# info:     returns random file from the assets specified in searchQuery which are in the maxScaleError range
+# example:  assetFitSize("assets/*.obj","xz",0.2)
+#
+assetFitSize(searchQuery,axisSelector,maxScaleError) = 
+    case axisSelector == "x":
+        listRandom(assetsSortSize(fileSearch(searchQuery),x,maxScaleError))
+    case axisSelector == "xy":
+        listRandom(assetsSortSize(fileSearch(searchQuery),xy,maxScaleError))
+    case axisSelector == "xz":
+        listRandom(assetsSortSize(fileSearch(searchQuery),xz,maxScaleError))
+    case axisSelector == "y":
+        listRandom(assetsSortSize(fileSearch(searchQuery),y,maxScaleError))
+    case axisSelector == "yz":
+        listRandom(assetsSortSize(fileSearch(searchQuery),yz,maxScaleError))
+    case axisSelector == "z":
+        listRandom(assetsSortSize(fileSearch(searchQuery),z,maxScaleError))
+    else:   // "xyz"
+        listRandom(assetsSortSize(fileSearch(searchQuery),xyz,maxScaleError))
+
+
+
+#
+# name:     assetBestRatio
+# info:     returns from list specified with searchQuery the asset with the best ratio match (according to specified axis)
+# example:  assetBestRatio("assets/*.obj","xz")
+#
+assetBestRatio(searchQuery,axisSelector) = 
+    case axisSelector == "xy":
+        listFirst(assetsSortRatio(fileSearch(searchQuery),xy))
+    case axisSelector == "xz":
+        listFirst(assetsSortRatio(fileSearch(searchQuery),xz))
+    case axisSelector == "yz":
+        listFirst(assetsSortRatio(fileSearch(searchQuery),yz))
+    else:   // "xyz"
+        listFirst(assetsSortRatio(fileSearch(searchQuery),xyz))
+
+#
+# name:     assetApproxRatio
+# info:     returns random file from the n best assets specified in searchQuery which fit with best size
+# example:  assetApproxRatio("assets/*.obj","xz",5)
+#
+assetApproxRatio(searchQuery,axisSelector,n) = 
+    case axisSelector == "xy":
+        listRandom(listRange(assetsSortRatio(fileSearch(searchQuery),xy),0,n))
+    case axisSelector == "xz":
+        listRandom(listRange(assetsSortRatio(fileSearch(searchQuery),xz),0,n))
+    case axisSelector == "yz":
+        listRandom(listRange(assetsSortRatio(fileSearch(searchQuery),yz),0,n))
+    else:   // "xyz"
+        listRandom(listRange(assetsSortRatio(fileSearch(searchQuery),xyz),0,n))
+
+##############################
+##
+##  color utils
+##
+##############################
+
+#   
+# name:     colorRamp
+# info:     returns hex color from ramps for values between 0 and 1
+# example:  colorRamp("yellowToRed",0.5) returns orange color
+# 
+colorRamp(gradient,value) = 
+    case value < 0 : listFirst(colorRampEntries(gradient))
+    case value >= 1: listLast (colorRampEntries(gradient))
+    else         : listItem (colorRampEntries(gradient),floor(36*value))
+
+colorRampEntries(gradient) = 
+    case gradient == "whiteToBlack" : "#FFFFFF;#F7F7F7;#F0F0F0;#E9E9E9;#E1E1E1;#DADADA;#D3D3D3;#CCCCCC;#C4C4C4;#BDBDBD;#B6B6B6;#AEAEAE;#A7A7A7;#A0A0A0;#999999;#919191;#8A8A8A;#838383;#7B7B7B;#747474;#6D6D6D;#666666;#5E5E5E;#575757;#505050;#484848;#414141;#3A3A3A;#333333;#2B2B2B;#242424;#1D1D1D;#151515;#0E0E0E;#070707;#000000;"
+    case gradient == "greenToRed"   : "#3BA800;#46AD00;#52B200;#5DB700;#69BC00;#74C100;#80C600;#8BCB00;#97D000;#A2D600;#AEDB00;#B9E000;#C5E500;#D0EA00;#DCEF00;#E7F400;#F3F900;#FFFF00;#FFF000;#FFE200;#FFD400;#FFC600;#FFB800;#FFAA00;#FF9B00;#FF8D00;#FF7F00;#FF7100;#FF6300;#FF5500;#FF4600;#FF3800;#FF2A00;#FF1C00;#FF0E00;#FF0000;"
+    case gradient == "yellowToRed"  : "#F5F500;#F5EE00;#F5E700;#F5E000;#F5D900;#F5D200;#F5CB00;#F5C400;#F5BD00;#F5B600;#F5AF00;#F5A800;#F5A100;#F59A00;#F59300;#F58C00;#F58500;#F57E00;#F57700;#F57000;#F56900;#F56200;#F55B00;#F55400;#F54D00;#F54600;#F53F00;#F53800;#F53100;#F52A00;#F52300;#F51C00;#F51500;#F50E00;#F50700;#F50000;"
+    case gradient == "redToBlue"    : "#C44539;#C74F40;#CA5A48;#CD654F;#D07057;#D37A5F;#D78566;#DA906E;#DD9B76;#E0A57D;#E3B085;#E6BB8D;#EAC694;#EDD09C;#F0DBA4;#F3E6AB;#F6F1B3;#FAFCBB;#EFF3BC;#E4EABD;#D9E2BE;#CED9BF;#C3D0C0;#B8C8C1;#ADBFC2;#A2B7C3;#98AEC5;#8DA5C6;#829DC7;#7794C8;#6C8CC9;#6183CA;#567ACB;#4B72CC;#4069CD;#3661CF;"
+    case gradient == "orangeToBlue" : "#FFC800;#FFBD01;#FFB203;#FFA805;#FF9D07;#FF9209;#FF880B;#FF7D0D;#FF730F;#FF6616;#FF591D;#FF4C25;#FF3F2C;#FF3333;#FF263B;#FF1942;#FF0C49;#FF0051;#FC005A;#F90063;#F7006C;#F40075;#F2007E;#EF0087;#ED0090;#EA0099;#E800A2;#CE00AC;#B400B6;#9A00C1;#8000CB;#6700D5;#4D00E0;#3300EA;#1900F4;#0000FF;"
+    case gradient == "brownToBlue"  : "#9C5621;#A15F2A;#A76933;#AD733C;#B37D46;#B9874F;#BE9158;#C49B62;#CAA56B;#D0AF74;#D6B97D;#DCC387;#E1CD90;#E7D799;#EDE1A3;#F3EBAC;#F9F5B5;#FFFFBF;#F2F8BC;#E6F1B9;#DAEAB7;#CDE3B4;#C1DCB2;#B5D5AF;#A8CEAD;#9CC7AA;#90C0A8;#83B9A5;#77B2A2;#6BABA0;#5EA49D;#529D9B;#469698;#398F96;#2D8893;#218291;"
+    case gradient == "spectrum"     : "#B952A4;#A052A3;#8752A3;#6E52A3;#5552A3;#3C53A3;#3B68B2;#3A7EC1;#3A93D0;#39A9DF;#39BFEF;#49BFB6;#5ABF7D;#6BBF45;#89C73D;#A8D036;#B8D632;#C9DC2E;#D9E22B;#EAE827;#FBEE24;#F9D423;#F7BA22;#F5A021;#F38620;#F16D20;#F06220;#F05721;#EF4C22;#EF4123;#EF3624;#EE3324;#EE3024;#ED2D25;#ED2A25;#ED2726;"
+    else                            : ""
+
+
+##############################
+##
+##  helper rules
+##
+##############################
+
+#
+# name:     IDENTITY
+# info:     identity generation (e.g. for landmark export)
+# example:  IDENTITY
+#
+@Hidden
+IDENTITY --> set(material.name, "CityEngineShapeMaterial") color("#FFFFFF") IDENTITY.
+
+#
+# name:     TERRAIN_SMOOTH
+# info:     identity generation with normal smoothing (e.g. for terrain export)
+# example:  TERRAIN_SMOOTH
+#
+@Hidden
+TERRAIN_SMOOTH --> set(material.name, "CityEngineTerrainMaterial") color("#FFFFFF") setNormals(soft) TERRAIN_SMOOTH.
+
+#
+# name:     TERRAIN_SMOOTH_SIMPLIFY
+# info:     identity generation with normal smoothing and geometry simplification (e.g. for large terrain export)
+# example:  TERRAIN_SMOOTH_SIMPLIFY
+#
+@Hidden
+TERRAIN_SMOOTH_SIMPLIFY --> set(material.name, "CityEngineTerrainMaterial") color("#FFFFFF") reduceGeometry(0.8) setNormals(soft) TERRAIN_SMOOTH_SIMPLIFY.

@@ -1,0 +1,301 @@
+/**
+ * File:    BuildingsTeam.cga
+ * Created: 22 Mar 2012 23:12:23 GMT
+ * Author:  craig mccabe
+ */
+
+version "2014.0"
+
+// This CGA rule displays the distribution of different teams in Building M/MA/N on the Esri campus
+// using a drop-down menu.  Vacant offices are shown in light green (regular-sized <100m2) or dark green
+// (large/manager-sized >100 m2).  Need to add an "All Teams" option...
+
+@Order(1) @Range("Certification Program","Corporate Accounts","Data Content ArcGIS Online","EDN Program Management",
+				 "Education Delivery Planning","Educational Content Department","Management-Ed Services","Product Management",
+				 "Product Marketing Group Domestic","Redlands Training Delivery","Software Product Development","Software Product Release",
+				 "Microcomputer System Support","Systems Support","Systems Support Management","Technical Marketing Support Domestic",
+				 "Technical Support Call Center QA","Technical Support Call Ctr - Operations","Technical Support Call Ctr Business Unit",
+				 "Software Technical Support Mgmt.")
+attr Team_Selector = "Software Product Development"
+
+// Adjustable visualization options: show 3D furniture, change the floor display, or set exterior wall transparency
+@Order(1) @Range("Off","On")
+attr Show_Furniture = "Off"
+const highLOD = Show_Furniture == "On" 
+
+@Order(1) @Range("1","2","3")
+attr Floor_Selector = "1" 
+
+@Order(1) @Range("Single Floor","Stacked Floors")
+attr Floor_Display = "Stacked Floors"
+
+@Order(1) @Range(0,1)
+attr Exterior_Visibility = 0.1
+
+
+// Set extrusion heights of interior/exterior/partial-height walls & stairs
+@Group("Extrusion Heights",2)
+attr extWallHeight 	= 11.75*.3048
+@Group("Extrusion Heights")@Range(0,3.657)
+attr intWallHeight 	= 3*.3048
+@Group("Extrusion Heights")
+attr partWallHeight = 3*.3048
+@Group("Extrusion Heights")
+attr stairHeight = -0.5*.3048
+
+// Set colors for extruded structural (walls, doors, columns, etc.) features
+@Group("Structure Colors",3)
+attr extWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr intWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr doorColor 		= "#966D18"
+@Group("Structure Colors")
+attr fireDoorColor  = "#FF0000"
+@Group("Structure Colors")
+attr glassColor 	= "#99C6FD"
+@Group("Structure Colors")
+attr glassDoorColor = "#0080C0"
+@Group("Structure Colors")
+attr columnColor	= "#5C5C5C"
+@Group("Structure Colors")
+attr errorColor 	= "#FF0000"
+@Group("Structure Colors")
+attr stairColor 	= "#5C5C5C"
+@Group("Structure Colors")
+
+// Set floor surface colors for different types of interior spaces
+@Group("Space Colors")
+attr hallColor 		= "#C0C0C0"
+attr vacantColorReg = "#00CA00"
+attr vacantColorMgr	= "#008000"
+
+attr CertProgColor = "#CDAA66"
+attr CorpAcctColor = "#73B2FF"
+attr DataContentColor = "#A8A800"
+attr EDNProgMgmtColor = "#73DFFF"
+attr EdDeliveryColor = "#F088FF"
+attr EdContentColor = "#F088FF"
+attr EdSvcsMgmtColor = "#F088FF"
+attr PCSupportColor = "#FFBEBE"
+attr ProductMgmtColor = "#FFAA00"
+attr ProductMktgColor = "#66CDAB"
+attr TrainingColor = "#897044"
+attr SWProdDevColor = "#CD6699"
+attr SWProdRelColor = "#6779C0"
+attr SysSupportColor = "#FFBEBE"
+attr SysSupportMgmtColor = "#FFBEBE"
+attr TechMktgSupportColor = "#C7D79E"
+attr TechSupportCallQAColor = "#C7D79E"
+attr TechSupportCallOpsColor = "#C7D79E"
+attr TechSupportCallCtrBusColor = "#C7D79E"
+attr TechSupportMgmtColor = "#C7D79E"
+
+
+// Set default feature attribute values
+attr STRUCTURETYPE 	= "unknown"
+attr COSTCTRN 		= "unknown"
+attr SPACETYPE		= "unknown"
+attr SHORTNAME 		= "unknown"
+attr BASEELEV		= 0
+
+
+// 3D models of people, interior space types/assets
+peopleAsset = fileRandom("assets/people_by_lowpolygon3d_com/*.obj")
+officeAsset = "assets/interiorFurniture/computer_1_v1.obj"
+confAsset = "assets/interiorFurniture/table_3_v1.obj"
+restroomAssetMen = "assets/restrooms/Restroom_Man6.dae"
+restroomAssetWomen = "assets/restrooms/Restroom_Woman6.dae"
+
+
+@StartRule
+Structure --> 
+	case STRUCTURETYPE == "Interior Wall" :
+		Wall(intWallHeight, intWallColor)
+	case STRUCTURETYPE == "Exterior Wall" :
+		set(material.opacity,Exterior_Visibility) Wall(extWallHeight, extWallColor)
+	case STRUCTURETYPE == "Column" :
+		set(material.opacity,0.5) Wall(extWallHeight, columnColor)
+	case STRUCTURETYPE == "Door" :
+		projectUV(0) Wall(intWallHeight, doorColor) 
+	case STRUCTURETYPE == "Fire Door" :
+		Wall(intWallHeight, fireDoorColor)
+	case STRUCTURETYPE == "Exterior Glass Wall" :
+		set(material.opacity,Exterior_Visibility*.5) Wall(extWallHeight, glassColor)
+	case STRUCTURETYPE == "Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+	case STRUCTURETYPE == "Glass Wall" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassColor)
+	case STRUCTURETYPE == "Partial Height Wall" :
+		Wall(partWallHeight, intWallColor)
+	case STRUCTURETYPE == "Sliding Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+	case STRUCTURETYPE == "Stair" :
+		Wall(stairHeight, stairColor)
+	else :
+		Wall(0, errorColor)
+
+
+@StartRule
+Floors -->
+// Breakdown of different Teams in Building M/MA/N
+
+	case Team_Selector == "Certification Program" && COSTCTRN == "Certification Program" : 
+			report("Area.CertificationProgram",geometry.area*10.7639104)
+			Floor(CertProgColor,1.5)
+	case Team_Selector == "Corporate Accounts" && COSTCTRN == "Corporate Accounts" :
+			report("Area.CorporateAccounts",geometry.area*10.7639104)
+			Floor(CorpAcctColor,1.5)
+	case Team_Selector == "Data Content ArcGIS Online" && COSTCTRN == "Data Content ArcGIS Online" :
+			report("Area.DataContentArcGISOnline",geometry.area*10.7639104)
+			Floor(DataContentColor,1.5) 
+	case Team_Selector == "EDN Program Management" && COSTCTRN == "EDN Program Management" :
+			report("Area.EDNProgramMgmt",geometry.area*10.7639104)
+			Floor(EDNProgMgmtColor,1.5)
+	case Team_Selector == "Education Delivery Planning" && COSTCTRN == "Education Delivery Planning" :
+			report("Area.EdDeliveryPlanning",geometry.area*10.7639104)
+			Floor(EdDeliveryColor,1.5)
+	case Team_Selector == "Educational Content Department" && COSTCTRN == "Educational Content Department" :
+			report("Area.EdContentDept",geometry.area*10.7639104)
+			Floor(EdContentColor,1.5)
+	case Team_Selector == "Management-Ed Services" && COSTCTRN == "Management-Ed Services" :
+			report("Area.EdServicesMgmt",geometry.area*10.7639104)
+			Floor(EdSvcsMgmtColor,1.5)
+	case Team_Selector == "Microcomputer System Support" && COSTCTRN == "Microcomputer System Support" :
+			report("Area.PCSystemSupport",geometry.area*10.7639104)
+			Floor(PCSupportColor,1.5)
+	case Team_Selector == "Product Management" && COSTCTRN == "Product Management" :
+			report("Area.ProductMgmt",geometry.area*10.7639104)
+			Floor(ProductMgmtColor,1.5)
+	case Team_Selector =="Product Marketing Group Domestic" && COSTCTRN == "Product Marketing Group Domestic" :
+			report("Area.ProductMktgDom",geometry.area*10.7639104)
+			Floor(ProductMktgColor,1.5)
+	case Team_Selector =="Redlands Training Delivery" && COSTCTRN == "Redlands Training Delivery" :
+			report("Area.RedlandsTrainingDelivery",geometry.area*10.7639104)
+			Floor(TrainingColor,1.5)
+	case Team_Selector == "Software Product Development" && COSTCTRN == "Software Product Development" :
+			report("Area.SWProdDev",geometry.area*10.7639104)
+			Floor(SWProdDevColor,1.5)
+	case Team_Selector == "Software Product Release" && COSTCTRN == "Software Product Release" :
+			report("Area.SWProdRel",geometry.area*10.7639104)
+			Floor(SWProdRelColor,1.5)
+	case Team_Selector == "Systems Support" && COSTCTRN == "Systems Support" :
+			report("Area.SysSupport",geometry.area*10.7639104)
+			Floor(SysSupportColor,1.5)
+	case Team_Selector == "Systems Support Management" && COSTCTRN == "Systems Support Management" :
+			report("Area.SysSupportMgmt",geometry.area*10.7639104)
+			Floor(SysSupportMgmtColor,1.5)
+	case Team_Selector == "Technical Marketing Support Domestic" && COSTCTRN == "Technical Marketing Support Domestic" :
+			report("Area.TechMktgSupportDom",geometry.area*10.7639104)
+			Floor(TechMktgSupportColor,1.5)
+	case Team_Selector == "Technical Support Call Center QA" && COSTCTRN == "Technical Support Call Center QA" :
+			report("Area.TechSupportCallCtrQA",geometry.area*10.7639104)
+			Floor(TechSupportCallQAColor,1.5)
+	case Team_Selector == "Technical Support Call Ctr - Operations" && COSTCTRN == "Technical Support Call Ctr - Operations" :
+			report("Area.TechSupportCallCtrOps",geometry.area*10.7639104)
+			Floor(TechSupportCallOpsColor,1.5)
+	case Team_Selector == "Technical Support Call Ctr Business Unit" && COSTCTRN == "Technical Support Call Ctr Business Unit" :
+			report("Area.TechSupportCallCtrBusUnit",geometry.area*10.7639104)
+			Floor(TechSupportCallCtrBusColor,1.5)
+	case Team_Selector == "Software Technical Support Mgmt." && COSTCTRN == "Software Technical Support Mgmt." :
+			report("Area.TechSupportMgmt",geometry.area*10.7639104)
+			Floor(TechSupportMgmtColor,1.5)
+	
+// Vacant Offices - Regular & Manager sizes
+	case COSTCTRN == "Vacant" && geometry.area*10.7639104 < 100:				// How do you specify that an empty or missing field = vacant space? Short term
+		Floor(vacantColorReg,0)													// solution was to poppulate COSTCTRN with "Vacant" to symbolize occupancy
+		report("Area.VacantOffices",geometry.area*10.7639104)
+	case COSTCTRN == "Vacant" && geometry.area*10.7639104 > 100:				
+		Floor(vacantColorMgr,0)	
+		Furniture(restroomAssetMen,1.75,vacantColorMgr)
+		report("Area.VacantOffices",geometry.area*10.7639104)
+
+// Elevator shaft
+	case SPACETYPE == "Elevator" :
+		NIL
+
+// People in corridors
+	case SPACETYPE == "Corridor" && geometry.area < 10:
+			Floor(hallColor,0)
+			Furniture(peopleAsset,rand(1.5,2.0),0)
+
+// All Other Spaces
+	else :
+		report("Area.OtherSpaces", geometry.area*10.7639104)
+		Floor(hallColor,0)
+
+
+Floor(c,z) -->
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors" :
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		color(c)
+		extrude(z)
+	else: NIL
+
+Wall(n,c) --> 
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	else: NIL
+
+Furniture(q,z,c) -->
+	case highLOD && Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q) color(c)
+	case highLOD && Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q) color(c)
+	case highLOD && Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+ 		s(0,z,0) center(xz) i(q) color(c)
+ 	case highLOD && Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q) color(c)
+	case highLOD && Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		s(0,z,0) center(xz) i(q) color(c)
+	case highLOD && Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+ 		s(0,z,0) center(xz) i(q) color(c)
+	else : NIL

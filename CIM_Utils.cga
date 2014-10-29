@@ -1,0 +1,30 @@
+/**
+ * File:    3DCIM_Utils.cga
+ * Created: 10 Apr 2014 19:24:35 GMT
+ * Author:  Pascal
+ */
+
+version "2014.0"
+
+
+getUsageTypeColor(usageType) =
+     case usageType == "Open Space"		: "#9fb82e"
+     case usageType == "Protected Site"	: "#639000"
+     case usageType == "Agricultural"	: "#c9f600"
+     case usageType == "Assembly"		: "#faa3e4"
+     case usageType == "Educational"	: "#3274c6"
+     case usageType == "Industry"		: "#472b83"
+     case usageType == "Mercantile"		: "#9a752d"
+     case usageType == "Office"			: "#719284"
+     case usageType == "Public"			: "#78C7E9"
+     case usageType == "Residential"	: "#ffff00"
+     case usageType == "Service"		: "#f1b746"
+     case usageType == "Storage"		: "#8e6dd7"
+     case usageType == "Transport"		: "#B884D5"
+     case usageType == "Utility"		: "#888888"
+     else								: "#ffffff"
+     
+
+@StartRule
+Generate --> NIL
+

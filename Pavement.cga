@@ -1,0 +1,51 @@
+/**
+ * File:    Pavement.cga
+ * Created: 19 Apr 2012 18:00:53 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+//Pavement Textures
+attr street_tex = "exteriorTextures/street.jpg"
+attr walkingpath_tex = "exteriorTextures/walkingpath.jpg"
+attr sidewalk_tex = "exteriorTextures/sidewalk.png"
+attr bikepath_tex = "exteriorTextures/bikepath.png"
+attr parkinglot_tex = "exteriorTextures/parkinglot.png"
+attr curb_tex = "exteriorTextures/sidewalk.png"
+attr gutter_tex = "exteriorTextures/sidewalk.png"
+
+attr dirtmap_tex = "exteriorTextures/dirtmap.png"
+//Pavement Colors
+
+attr errorColor 	= "#FF0000"
+attr walkingpathColor	= "#DDC1C6"
+
+attr SURFUSE 		= "unknown"
+
+@StartRule
+Landscape -->
+	case SURFUSE == "Street" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(street_tex) 
+	case SURFUSE == "Walking Path" :
+		setupProjection(2, scope.zx, 3, 3) projectUV(2) color(walkingpathColor)
+	set(material.dirtmap,dirtmap_tex)
+	
+	
+//		color(walkingpathColor) projectUV(0) setupProjection(2, scope.zx, 3, 3) projectUV(2) texture(dirtmap_tex)
+	case SURFUSE == "Sidewalk" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(sidewalk_tex) 		
+	case SURFUSE == "Bike Path" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(bikepath_tex)
+	case SURFUSE == "Parking Lot" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(parkinglot_tex) 
+	case SURFUSE == "Curb / Gutter" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(curb_tex) 
+	case SURFUSE == "Gutter" :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) texture(gutter_tex)
+	else :
+		setupProjection(0, scope.zx, 3, 3) projectUV(0) color(errorColor)
+		
+//Landscape(c) -->
+//	translate(rel, world, 0, 3, 0)
+//	color(c)

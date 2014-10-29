@@ -1,0 +1,199 @@
+/**
+ * File:    BuildingsTexStacked.cga
+ * Created: 22 Mar 2012 23:12:23 GMT
+ * Author:  craig mccabe
+ */
+
+version "2014.0"
+
+// Adjustable visualization options: change the floor display or set exterior wall transparency
+
+@Order(1) @Range("1","2","3")
+attr Floor_Selector = "1" 
+
+@Order(1) @Range("Single Floor","Stacked Floors")
+attr Floor_Display = "Stacked Floors"
+
+@Order(1) @Range(0,1)
+attr Exterior_Visibility = 0.1
+
+
+// Set extrusion heights of interior/exterior/partial-height walls & stairs
+@Group("Extrusion Heights",2)
+attr extWallHeight 	= 11.75*.3048
+@Group("Extrusion Heights")@Range(0,3.657)
+attr intWallHeight 	= 3*.3048
+@Group("Extrusion Heights")
+attr partWallHeight = 3*.3048
+@Group("Extrusion Heights")
+attr stairHeight = -0.5*.3048
+
+// Set colors for extruded structural (walls, doors, columns, etc.) features
+@Group("Structure Colors",3)
+attr extWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr intWallColor 	= "#D6CDBE"
+@Group("Structure Colors")
+attr doorColor 		= "#966D18"
+@Group("Structure Colors")
+attr fireDoorColor  = "#FF0000"
+@Group("Structure Colors")
+attr glassColor 	= "#99C6FD"
+@Group("Structure Colors")
+attr glassDoorColor = "#0080C0"
+@Group("Structure Colors")
+attr columnColor	= "#5C5C5C"
+@Group("Structure Colors")
+attr errorColor 	= "#FF0000"
+@Group("Structure Colors")
+attr stairColor 	= "#5C5C5C"
+@Group("Structure Colors")
+
+// Set floor surface colors for different types of interior spaces
+@Group("Space Colors",3)
+attr officeColor 	= "#FEF2B1"
+@Group("Space Colors")
+attr hallColor 		= "#C0C0C0"
+@Group("Space Colors")
+attr confColor 		= "#FCDB23"
+@Group("Space Colors")
+attr breakColor 	= "#A4D595"
+@Group("Space Colors")
+attr restroomColorMen	= "#B0E6FF"
+attr restroomColorWomen	= "#FFD2FF"
+@Group("Space Colors")
+attr serverColor	= "#AFAFD8"
+
+// Set default feature attribute values
+attr STRUCTURETYPE 	= "unknown"
+attr SPACETYPE 		= "unknown"
+attr SHORTNAME 		= "unknown"
+attr BASEELEV		= 0
+
+// Set floor textures
+//attr door_tex = "interiorTextures/brickwall2.tif"
+//attr wall_tex = "interiorTextures/wall.tif"
+attr restroom_tex = "interiorTextures/Restroom_tile.jpg"
+attr dirt_tex = "interiorTextures/dirtmap.15.tif"
+attr carpet_tex = "interiorTextures/carpetTiles.jpg"
+attr lobby_tex = "interiorTextures/lobbyTiles.jpg"
+attr linoleum_tex = "interiorTextures/linoleumTiles.jpg"
+attr patio_tex = "interiorTextures/patioTiles2.jpg"
+
+
+// 3D models of people, interior space types/assets
+peopleAsset = fileRandom("assets/people_by_lowpolygon3d_com/*.obj")
+officeAsset = "assets/interiorFurniture/computer_1_v1.obj"
+confAsset = "assets/interiorFurniture/table_3_v1.obj"
+restroomAssetMen = "assets/restrooms/Restroom_Man6.dae"
+restroomAssetWomen = "assets/restrooms/Restroom_Woman6.dae"
+//breakAsset = 
+
+
+@StartRule
+Structure --> 
+	case STRUCTURETYPE == "Interior Wall" :
+		Wall(intWallHeight, intWallColor)
+	case STRUCTURETYPE == "Exterior Wall" :
+		set(material.opacity,Exterior_Visibility) Wall(extWallHeight, extWallColor)
+	case STRUCTURETYPE == "Column" :
+		set(material.opacity,0.5) Wall(extWallHeight, columnColor)
+	case STRUCTURETYPE == "Door" :
+		projectUV(0) Wall(intWallHeight, doorColor) 
+	case STRUCTURETYPE == "Fire Door" :
+		Wall(intWallHeight, fireDoorColor)
+	case STRUCTURETYPE == "Exterior Glass Wall" :
+		set(material.opacity,Exterior_Visibility*.5) Wall(extWallHeight, glassColor)
+	case STRUCTURETYPE == "Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+	case STRUCTURETYPE == "Glass Wall" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassColor)
+	case STRUCTURETYPE == "Partial Height Wall" :
+		Wall(partWallHeight, intWallColor)
+	case STRUCTURETYPE == "Sliding Glass Door" :
+		set(material.opacity,0.5) Wall(intWallHeight, glassDoorColor)
+	case STRUCTURETYPE == "Stair" :
+		Wall(stairHeight, stairColor)
+	else :
+		Wall(0, errorColor)
+
+
+// Set floor material textures for different space types within the building
+@StartRule
+Floors -->
+	case SPACETYPE == "Office" ||
+		 SPACETYPE == "Office Cubicle" || 
+		 SPACETYPE == "Work Spaces" || 
+		 SPACETYPE == "Conference Room" || 
+		 SPACETYPE == "Classroom" || 
+		 SPACETYPE == "Atrium" || 
+		 SPACETYPE == "Corridor" :
+			setupProjection(0, scope.zx, 1.2, 1.2) projectUV(0) Floor(carpet_tex)
+	case SPACETYPE == "Kitchen" || 
+	     SPACETYPE == "Entry Lobby" :
+			setupProjection(0, scope.zx, 1, 1) projectUV(0) Floor(lobby_tex) 
+	case SPACETYPE == "Restroom" || 
+	     SPACETYPE == "Entry Vestibule" || 
+	     SPACETYPE == "Break Room" :
+			setupProjection(0, scope.zx, 5, 5) projectUV(0) Floor(restroom_tex) 
+	case SPACETYPE == "Patio" :
+			setupProjection(0, scope.zx, .5, .5) projectUV(0) Floor(patio_tex) 
+	case SPACETYPE == "Copy Room" || 
+		 SPACETYPE == "Maintenance Closet" || 
+		 SPACETYPE == "Mechanical Room" ||
+		 SPACETYPE == "Electrical Room" || 
+		 SPACETYPE == "Computer Server Room" || 
+		 SPACETYPE == "Storage Room" || 
+		 SPACETYPE == "Vending Machine Area" : 
+			setupProjection(0, scope.zx, .5, .5) projectUV(0) Floor(linoleum_tex)
+	else :
+		Floor(hallColor)
+
+
+Floor(p) -->
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors" :
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0)
+		texture(p)
+	else: NIL
+
+Wall(n,c) --> 
+	case Floor_Selector == "1" && BASEELEV < 10 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV < 20 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV < 30 && Floor_Display == "Stacked Floors":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "1" && BASEELEV == 0 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "2" && BASEELEV == 12 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	case Floor_Selector == "3" && BASEELEV == 24 && Floor_Display == "Single Floor":
+		translate(rel, world, 0, BASEELEV*.3048, 0) 
+		color(c)
+		extrude(n)
+	else: NIL

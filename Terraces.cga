@@ -1,0 +1,39 @@
+/**
+ * File:    Terraces.cga
+ * Created: 9 May 2012 22:58:46 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+attr grassColor = "#FFFFFF"
+attr pavedColor = "#FFFFFF"
+attr hydroColor = "#FFFFFF"
+attr bldgColor = "#FFFFFF"
+attr otherColor = "#FFFFFF"
+
+attr elev = 0
+attr SURFTYPE		= "unknown"
+
+Terrace --> 
+	case SURFTYPE == "grass" :
+		translate(rel, world, 0, elev, 0) 
+		color(grassColor)
+		extrude(-1)
+	case SURFTYPE == "paved" :
+		translate(rel, world, 0, elev, 0) 
+		color(pavedColor)
+		extrude(-1)
+	case SURFTYPE == "hydro" :
+		translate(rel, world, 0, elev, 0) 
+		color(hydroColor)
+		extrude(-1)
+	case SURFTYPE == "bldg" :
+		translate(rel, world, 0, elev, 0) 
+		color(bldgColor)
+		extrude(-1)
+	case SURFTYPE == "other" :
+		translate(rel, world, 0, elev, 0) 
+		color(otherColor)
+		extrude(-1)
+	else: NIL

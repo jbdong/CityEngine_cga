@@ -1,0 +1,25 @@
+/**
+ * File:    Landscape.cga
+ * Created: 18 Apr 2012 22:43:15 GMT
+ * Author:  crai6288
+ */
+
+version "2014.0"
+
+
+//Hydro Colors
+attr waterColor 	= "#36C7F1"
+
+@StartRule
+//Hydro --> color(waterColor)
+
+Hydro -->
+	setupProjection(0, scope.xz, 100,100)
+	projectUV(0)
+	texture("/SciFiUnreal/maps/water.jpg")
+	set(material.specular.r, 0.8)
+	set(material.specular.g, 0.6)
+	set(material.specular.b, 0.4)
+	set(material.shininess, 20)
+	set(material.opacity, 0.5)
+	set(material.reflectivity, 0.1) 

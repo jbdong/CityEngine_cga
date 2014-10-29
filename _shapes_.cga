@@ -1,0 +1,110 @@
+############################################################################################
+# Initial Shapes for Footprints, Lots, and Parcels
+#
+
+Base_40x20 		--> Shape(40,20)
+Base_80x80 		--> Shape(80,80)
+Base_UnitSquare	--> Shape(1,1) 
+Base_ShapeL		--> ShapeL(false)
+Base_ShapeU		--> ShapeU(false)	
+Base_Triangle 	--> ShapeTriangle(false)
+Base_Convex		--> ShapeConvex(false)	
+Base_Concave	--> ShapeConcave(false)
+Bases			-->	Array(false)
+
+
+
+############################################################################################
+# Initial Shapes for Volumes
+#
+
+Volume_10x20x30 --> Shape(10,20,30)
+Volume_30x150x50--> Shape(30,150,50)
+Volume_UnitCube --> Shape(1,1,1)
+Volume_Complex	--> ShapeComplex(true)
+Volumes 		--> Array(true) //t(b*17,0,-b*4.94) Shape_Complex(true)
+
+
+
+############################################################################################
+# Initial Shapes for Facades
+#
+
+Facade_10x10 	--> Fac(10,10)
+Facade_30x100 	--> Fac(30,100)
+Facade_50x20 	--> Fac(50,20)
+Facade_Slanted	--> r(75,0,20) alignScopeToAxes split(y){ '0.3: NIL | ~1: alignScopeToGeometry(zUp,world.lowest,world.lowest) s(20,20,'1) Shape }
+Facades 		--> Fac(5,10) t(8,0,0) Fac(10,20) t(13,0,0) Fac(20,50) t(23,0,0) Fac(30,100) 
+
+
+
+############################################################################################
+# Utils to invoke the shape Rule
+#
+
+
+@Hidden
+const size = 15	
+
+@Hidden
+Shape(sx,sy,sz,vol)	--> case vol: Shape(sx,sy,sz) else: Shape(sx,sz)
+@Hidden
+Shape(sx,sy,sz) 	--> extrude(1) s(sx,sy,sz) Shape		
+@Hidden
+Shape(sx,sz) 		--> s(sx,0,sz) Shape
+
+@Hidden
+Array(vol) -->
+	[             Shape(size ,size ,size ,vol) t(size*2,0,0) Shape(size*2,size*2 ,size ,vol) ]  
+	[ t(0,0,-size*3) Shape(size ,size*4,size*2,vol) t(size*2,0,0) Shape(size*2,size*6 ,size*2,vol) ] 
+	[ t(0,0,-size*7) Shape(size*4,size*10,size*3,vol) t(size*5,0,0) Shape(size*3,size*15,size*8,vol) ]
+	[ t(size*9,0,-size) ShapeL(vol) t(0,0,-size*3) ShapeU(vol) t(0,0,-size*3) ShapeTriangle(vol) ] 
+	[ t(size*13,0,-size) ShapeConcave(vol) t(0,0,-size*3) ShapeConvex(vol) ]
+
+@Hidden
+ShapeL(vol) -->
+	shapeL(0.5,0.25){ shape: Shape(size*3,size*3,size*2,vol) } 
+@Hidden
+ShapeU(vol) --> 
+	shapeO(0,0.3333,0.5,0.25){ shape: Shape(size*3,size*5,size*2,vol) }	
+	
+@Hidden
+ShapeTriangle(vol) --> 
+	r(70,40,25) alignScopeToAxes split(z){ '0.25: split(x){ ~1: NIL | '0.25: 
+		alignScopeToAxes s('1,0,'1) Shape(size*3,size*3,size*2,vol) } }
+
+@Hidden
+ShapeConvex(vol) --> 
+	r(0,-40,0) alignScopeToAxes split(z){ '0.85: 
+		r(0,20,0) alignScopeToAxes split(x){ '0.75: 
+			r(0,35,0) alignScopeToAxes split(z){ '0.3: NIL | ~1:
+				r(0,-15,0) alignScopeToAxes Shape(size*3,size*2,size*2,vol) } } }	
+@Hidden
+ShapeConcave(vol) --> 
+	r(0,-40,0) alignScopeToAxes split(z){ '0.755: split(x){ '0.65:  
+		r(0,40,0) alignScopeToAxes shapeL(0.3,0.0){ shape:  
+			alignScopeToAxes Shape(size*3,size,size*2,vol) } } }
+
+@Hidden
+ShapeComplex(vol) --> # vol parameter not used i.e. only for volumes atm 
+	shapeL(0.5,0.25){ shape: extrude(1) r(23,45,67) alignScopeToAxes
+		 split(y){ '0.5: extrude(0.2) r(76,54,32) alignScopeToAxes
+			 split(y){ '0.5: r(180,-104.35,0) alignScopeToAxes s(size*6,size*6,size*6) Shape } } } 
+
+@Hidden
+Fac(sx,sy) --> 
+	r(90,0,0) alignScopeToGeometry(zUp,0,0) s(sx,sy,0) Shape
+
+
+
+############################################################################################
+# Final shape to apply preview
+# 
+
+# Shape body will be replaced by the actual start rule invocation (of selected rule file)!!!
+@Hidden
+Shape 		--> color("#FF0000")
+
+# ShapeNil will be used for unmatched / in-style-missing rule definitions
+@Hidden
+ShapeNil	-->	NIL
