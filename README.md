@@ -9,6 +9,4 @@ I do not own and did not author any of this code - All accolades to the staff at
 
 I only needed a central location to host the code since I was unable to find anything else posted.
 
-It should be noted that the naming convention was changed from that of the actual tutorial files.
-
 I hope this helps others!
